@@ -1,0 +1,62 @@
+# Build directories
+/build/
+/build-*/
+/CMakeFiles/
+/_CPack_Packages/
+/.vs/
+/x64/
+/third_party/
+
+# CMake generated files in the source tree
+/CMakeCache.txt
+/cmake_install.cmake
+/CPackConfig.cmake
+/CPackSourceConfig.cmake
+/CTestTestfile.cmake
+/install_manifest.txt
+
+# Visual Studio and generated CMake project files
+/*.sln
+/*.slnx
+/*.vcxproj
+/*.vcxproj.filters
+/*.vcxproj.user
+/*.vcxproj.FileListAbsolute.txt
+/*.dir/
+
+# Demo binaries and generated demo output
+/blend2d_shapes_demo
+/blend2d_shapes_demo.exe
+/blend2d_shapes_demo*.png
+
+# Nested generated project files
+/Blend2DUI/CMakeFiles/
+/Blend2DUI/*.dir/
+/Blend2DUI/*.vcxproj
+/Blend2DUI/*.vcxproj.filters
+/Blend2DUI/*.vcxproj.user
+/Blend2DUI/cmake_install.cmake
+/Blend2DUI/Debug/
+/Blend2DUI/Release/
+/Blend2DUI/MinSizeRel/
+/Blend2DUI/RelWithDebInfo/
+
+# Compiler and linker by-products
+*.obj
+*.o
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.log
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
