@@ -72,7 +72,7 @@ target_compile_features(Blend2DUI PUBLIC cxx_std_17)
 
 add_executable(blend2d_ui_demo
   blend2d_ui_demo/SdlBlend2DRenderer.cpp
-  examples/demo.cpp
+  blend2d_ui_demo/demo.cpp
 )
 
 target_link_libraries(blend2d_ui_demo PRIVATE Blend2DUI)

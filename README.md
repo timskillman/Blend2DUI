@@ -14,8 +14,7 @@ assets/                  Demo assets, including SVG examples
 SvgRender/               SVG renderer library and command-line demo entry point
 Blend2DUI/include/       Reusable UI headers
 Blend2DUI/src/           Reusable UI implementation
-Blend2DUI/examples/      UI demo entry points
-Blend2DUI/blend2d_ui_demo/ Demo-specific renderer/layout code
+Blend2DUI/blend2d_ui_demo/ Demo-specific renderer, layout, and entry point
 ../third_party/blend2d/  Shared vendored Blend2D, when present
 ../third_party/SDL/      Shared vendored SDL3, when present
 ```
