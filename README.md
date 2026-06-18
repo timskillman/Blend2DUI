@@ -5,7 +5,7 @@ When it comes to C++, cross-platform, UI toolkits there are suprisingly very few
 This UI toolkit in an Immediate Mode Graphical User Interface (IMGUI) that aims to be far more versatile, attractive, fast and lightweight even to run on something as small as a Pi Zero!  Indeed development will continue to be tested on a Pi Zero to validate the UI's workability.
 
 This small set of demos takes a first step in rendering versatile widgets including gradient animated buttons, high-speed text areas and file dialogs.  It also renders high quality, scaleable SVG icons used for UI elements making for a professional interface. 
-So much more to come but I hope this demo gives a flavour of what is to come.
+So much more to come but I hope this demo gives you a flavour of what the UI will do.
 
 # Blend2D Demo and UI Toolkit
 
