@@ -1,3 +1,12 @@
+# Why this toolkit?
+
+When it comes to C++, cross-platform, UI toolkits there are suprisingly very few options that are lightweight, attractive and free! This toolkit aims to use the fastest 2D renderer out there, [Blend2D](https://github.com/blend2d/blend2d) using a lightwight cross-platform render backend - [SDL3](https://github.com/libsdl-org/SDL).
+
+This UI toolkit in an Immediate Mode Graphical User Interface (IMGUI) that aims to be far more versatile, attractive, fast and lightweight even to run on something as small as a Pi Zero!  Indeed development will continue to be tested on a Pi Zero to validate the UI's workability.
+
+This small set of demos takes a first step in rendering versatile widgets including gradient animated buttons, high-speed text areas and file dialogs.  It also renders high quality, scaleable SVG icons used for UI elements making for a professional interface. 
+So much more to come but I hope this demo gives you a flavour of what the UI will do.
+
 # Blend2D Demo and UI Toolkit
 
 This repository contains a C++17 Blend2D demo project with two main pieces:
@@ -6,6 +15,9 @@ This repository contains a C++17 Blend2D demo project with two main pieces:
 - `Blend2DUI`: a reusable SDL3/Blend2D UI library plus `blend2d_ui_demo`, an interactive demo application.
 
 The UI library currently includes buttons, text input, file dialogs, platform font discovery, scene management, and SDL event integration. Demo-specific layout code lives in `Blend2DUI/blend2d_ui_demo`, while the reusable widgets live under `Blend2DUI/include` and `Blend2DUI/src`.
+
+Note: You will need to download the [Blend2D](https://github.com/blend2d/blend2d) and [SDL3](https://github.com/libsdl-org/SDL) libraries and place them in a 'third_party' folder as shown below for these examples to compile and run.
+This code has been tested on RasperryPi's, Windows and Mac.
 
 ## Repository Layout
 
