@@ -48,6 +48,7 @@ add_library(Blend2DUI
   src/FileDialog.cpp
   src/FontManager.cpp
   src/SceneManager.cpp
+  src/Slider.cpp
   src/TextInput.cpp
 )
 

@@ -24,6 +24,9 @@ struct DemoButtonStyles {
   Blend2DUI::UI_ButtonStyleDefinition neutral{
       "FillColour:#F8FAFC, HoverColour:#E0F2FE, PressedColour:#BAE6FD, StrokeColour:#CBD5E1, "
       "StrokeWidth:1, TextColour:#0F172A, Corner:8, Font:DejaVuSans, FontSize:14"};
+  Blend2DUI::UI_ButtonStyleDefinition slider{
+      "FillColour:#FFFFFF, HoverColour:#E0F2FE, PressedColour:#38BDF8, StrokeColour:#94A3B8, "
+      "StrokeWidth:1, TextColour:#0F172A, Corner:8, Font:DejaVuSans, FontSize:14"};
 };
 
 const DemoButtonStyles ButStyles;
@@ -126,7 +129,29 @@ bool SdlBlend2DRenderer::renderDemoFrame(double seconds) {
   multiLineOptions.placeholder = "Multi-line text";
   UI_TextInput("multi-line-demo", BLRect(44, 168, std::max(260.0, w - 88.0), 128), multiLineOptions, multiLineText, ButStyles.input);
 
-  const double panelY = 318.0;
+  static double horizontalSliderValue = 64.0;
+  UI_SliderOptions horizontalSlider;
+  horizontalSlider.heading = "Horizontal slider";
+  horizontalSlider.minValue = 0.0;
+  horizontalSlider.maxValue = 100.0;
+  horizontalSlider.defaultValue = 64.0;
+  horizontalSlider.step = 1.0;
+  horizontalSlider.integer = true;
+  horizontalSlider.thumbShape = UI_SliderThumbShape::Circle;
+  UI_Slider("horizontal-slider-demo", BLRect(44, 310, std::max(300.0, w - 178.0), 58), horizontalSlider, horizontalSliderValue, ButStyles.slider);
+
+  static double verticalSliderValue = 0.35;
+  UI_SliderOptions verticalSlider;
+  verticalSlider.orientation = UI_SliderOrientation::Vertical;
+  verticalSlider.heading = "Vertical";
+  verticalSlider.minValue = 0.0;
+  verticalSlider.maxValue = 1.0;
+  verticalSlider.defaultValue = 0.35;
+  verticalSlider.step = 0.05;
+  verticalSlider.thumbShape = UI_SliderThumbShape::Diamond;
+  UI_Slider("vertical-slider-demo", BLRect(std::max(44.0, w - 110.0), 310, 66, 168), verticalSlider, verticalSliderValue, ButStyles.slider);
+
+  const double panelY = 498.0;
   const double panelH = std::max(120.0, h - panelY - 32.0);
   const double canvasX = 48.0;
   const double canvasY = panelY + 24.0;

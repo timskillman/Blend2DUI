@@ -14,7 +14,7 @@ This repository contains a C++17 Blend2D demo project with two main pieces:
 - `blend2d_shapes_demo`: a command-line renderer that writes PNG output and can render SVGs through the `SvgRender` library.
 - `Blend2DUI`: a reusable SDL3/Blend2D UI library plus `blend2d_ui_demo`, an interactive demo application.
 
-The UI library currently includes buttons, text input, file dialogs, platform font discovery, scene management, and SDL event integration. Demo-specific layout code lives in `Blend2DUI/blend2d_ui_demo`, while the reusable widgets live under `Blend2DUI/include` and `Blend2DUI/src`.
+The UI library currently includes buttons, sliders, text input, file dialogs, platform font discovery, scene management, and SDL event integration. Demo-specific layout code lives in `Blend2DUI/blend2d_ui_demo`, while the reusable widgets live under `Blend2DUI/include` and `Blend2DUI/src`.
 
 Note: You will need to download the [Blend2D](https://github.com/blend2d/blend2d) and [SDL3](https://github.com/libsdl-org/SDL) libraries and place them in a 'third_party' folder as shown below for these examples to compile and run.
 This code has been tested on RasperryPi's, Windows and Mac.
@@ -110,7 +110,7 @@ For single-config generators on Linux:
 ./build/Blend2DUI/blend2d_ui_demo
 ```
 
-The demo exercises the reusable UI controls, including buttons, single-line text input, multi-line text input, scrollbars, quick links, and the file dialog.
+The demo exercises the reusable UI controls, including buttons, horizontal and vertical sliders, single-line text input, multi-line text input, scrollbars, quick links, and the file dialog.
 
 ## Run The Shapes Demo
 

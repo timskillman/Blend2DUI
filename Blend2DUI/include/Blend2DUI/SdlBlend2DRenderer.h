@@ -2,6 +2,7 @@
 
 #include "Blend2DUI/Button.h"
 #include "Blend2DUI/FileDialog.h"
+#include "Blend2DUI/Slider.h"
 #include "Blend2DUI/TextInput.h"
 
 #include <SDL3/SDL.h>
@@ -35,6 +36,11 @@ class SdlBlend2DRenderer {
                     const UI_TextInputOptions& options,
                     std::string& text,
                     const UI_ButtonStyleDefinition& style);
+  bool UI_Slider(const std::string& id,
+                 const BLRect& rect,
+                 const UI_SliderOptions& options,
+                 double& value,
+                 const UI_ButtonStyleDefinition& style);
   UI_FileDialogResult UI_FileDialog(const std::string& id,
                                     const BLRect& rect,
                                     const UI_FileDialogOptions& options,
@@ -77,8 +83,11 @@ class SdlBlend2DRenderer {
   std::string hoveredButtonId_;
   std::string activeTextInputId_;
   std::string focusedTextInputId_;
+  std::string activeSliderId_;
+  std::string focusedSliderId_;
   double hoverStartSeconds_ = 0.0;
   std::unordered_map<std::string, UI_TextInputState> textInputStates_;
+  std::unordered_map<std::string, UI_SliderState> sliderStates_;
   std::unordered_map<std::string, UI_FileDialogState> fileDialogStates_;
   std::unordered_map<std::string, BLImage> imageCache_;
   std::unordered_map<std::string, BLFontFace> fontCache_;

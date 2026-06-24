@@ -41,6 +41,17 @@
 /Blend2DUI/MinSizeRel/
 /Blend2DUI/RelWithDebInfo/
 
+/SvgRender/CMakeFiles/
+/SvgRender/*.dir/
+/SvgRender/*.vcxproj
+/SvgRender/*.vcxproj.filters
+/SvgRender/*.vcxproj.user
+/SvgRender/cmake_install.cmake
+/SvgRender/Debug/
+/SvgRender/Release/
+/SvgRender/MinSizeRel/
+/SvgRender/RelWithDebInfo/
+
 # Compiler and linker by-products
 *.obj
 *.o
