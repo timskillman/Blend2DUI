@@ -106,6 +106,9 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     appendWindowsFontCandidate(candidates, windowsFontsDir, "arial.ttf");
   }
   if (key.find("dejavu") != std::string::npos || key == "sans" || key == "dejavusans") {
+    appendWindowsFontCandidate(candidates, windowsFontsDir, "YuGothR.ttc");
+    appendWindowsFontCandidate(candidates, windowsFontsDir, "YuGothM.ttc");
+    appendWindowsFontCandidate(candidates, windowsFontsDir, "meiryo.ttc");
     appendWindowsFontCandidate(candidates, windowsFontsDir, "segoeui.ttf");
     appendWindowsFontCandidate(candidates, windowsFontsDir, "arial.ttf");
   }
@@ -122,6 +125,9 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     appendWindowsFontCandidate(candidates, windowsFontsDir, "calibri.ttf");
   }
 
+  appendWindowsFontCandidate(candidates, windowsFontsDir, "YuGothR.ttc");
+  appendWindowsFontCandidate(candidates, windowsFontsDir, "YuGothM.ttc");
+  appendWindowsFontCandidate(candidates, windowsFontsDir, "meiryo.ttc");
   appendWindowsFontCandidate(candidates, windowsFontsDir, "segoeui.ttf");
   appendWindowsFontCandidate(candidates, windowsFontsDir, "arial.ttf");
   appendWindowsFontCandidate(candidates, windowsFontsDir, "calibri.ttf");
@@ -133,6 +139,9 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     appendAppleFontCandidate(candidates, "Arial.ttf");
   }
   if (key.find("dejavu") != std::string::npos || key == "sans" || key == "dejavusans" || key.empty()) {
+    appendAppleFontCandidate(candidates, "Hiragino Sans GB.ttc");
+    appendAppleFontCandidate(candidates, "ヒラギノ角ゴシック W3.ttc");
+    appendAppleFontCandidate(candidates, "ヒラギノ角ゴシック W6.ttc");
     appendAppleFontCandidate(candidates, "SFNS.ttf");
     appendAppleFontCandidate(candidates, "Helvetica.ttc");
     appendAppleFontCandidate(candidates, "HelveticaNeue.ttc");
@@ -153,6 +162,9 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     appendAppleFontCandidate(candidates, "Arial.ttf");
   }
 
+  appendAppleFontCandidate(candidates, "Hiragino Sans GB.ttc");
+  appendAppleFontCandidate(candidates, "ヒラギノ角ゴシック W3.ttc");
+  appendAppleFontCandidate(candidates, "ヒラギノ角ゴシック W6.ttc");
   appendAppleFontCandidate(candidates, "SFNS.ttf");
   appendAppleFontCandidate(candidates, "Helvetica.ttc");
   appendAppleFontCandidate(candidates, "HelveticaNeue.ttc");
@@ -164,6 +176,10 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     candidates.emplace_back("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf");
   }
   if (key.find("dejavu") != std::string::npos || key == "sans" || key == "dejavusans") {
+    candidates.emplace_back("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc");
+    candidates.emplace_back("/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf");
+    candidates.emplace_back("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc");
+    candidates.emplace_back("/usr/share/fonts/truetype/noto/NotoSansJP-Regular.ttf");
     candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
   }
   if (key.find("serif") != std::string::npos) {
@@ -176,6 +192,10 @@ std::vector<std::filesystem::path> FontManager::fontCandidates(const std::string
     candidates.emplace_back("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf");
   }
 
+  candidates.emplace_back("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc");
+  candidates.emplace_back("/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf");
+  candidates.emplace_back("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc");
+  candidates.emplace_back("/usr/share/fonts/truetype/noto/NotoSansJP-Regular.ttf");
   candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
   candidates.emplace_back("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf");
   return candidates;
