@@ -1,14 +1,46 @@
 #include "Blend2DUI/SdlBlend2DRenderer.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <vector>
 
 namespace Blend2DUI {
+namespace {
+
+using Clock = std::chrono::steady_clock;
+
+double elapsedMs(Clock::time_point start) {
+  return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+}
+
+bool profileEnvironmentEnabled() {
+  const char* value = std::getenv("BLEND2DUI_PROFILE");
+  if (!value) return false;
+  const std::string text(value);
+  return text == "1" || text == "true" || text == "TRUE" || text == "on" || text == "ON";
+}
+
+const char* profileLogPath() {
+  const char* value = std::getenv("BLEND2DUI_PROFILE_LOG");
+  return value && value[0] != '\0' ? value : "blend2d_ui_profile.log";
+}
+
+}  // namespace
 
 SdlBlend2DRenderer::~SdlBlend2DRenderer() {
   shutdown();
 }
 
 bool SdlBlend2DRenderer::initialize(const std::string& title, int width, int height) {
+  profilingEnabled_ = profileEnvironmentEnabled();
+  if (profilingEnabled_) {
+    std::ofstream log(profileLogPath(), std::ios::trunc);
+    log << "Blend2DUI profiling enabled\n";
+  }
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
     std::cerr << "SDL_Init failed: " << SDL_GetError() << "\n";
     return false;
@@ -30,6 +62,7 @@ bool SdlBlend2DRenderer::initialize(const std::string& title, int width, int hei
 
   buttonResources_.images = &imageCache_;
   buttonResources_.fonts = &fontCache_;
+  buttonResources_.shapedText = &shapedTextCache_;
   buttonResources_.assetBasePath = assetBasePath_;
   SDL_StartTextInput(window_);
 
@@ -59,6 +92,7 @@ void SdlBlend2DRenderer::shutdown() {
   image_.reset();
   imageCache_.clear();
   fontCache_.clear();
+  shapedTextCache_.clear();
   buttonResources_ = UI_ButtonResources();
 }
 
@@ -102,6 +136,7 @@ bool SdlBlend2DRenderer::handleEvent(const SDL_Event& event) {
 }
 
 bool SdlBlend2DRenderer::ensureBackBuffer() {
+  const auto profileStart = Clock::now();
   if (!window_) return false;
 
   int pixelWidth = 0;
@@ -110,10 +145,13 @@ bool SdlBlend2DRenderer::ensureBackBuffer() {
   if (pixelWidth <= 0 || pixelHeight <= 0) return false;
 
   if (pixelWidth == width_ && pixelHeight == height_ && texture_) {
+    if (profilingEnabled_) profileSection("ensureBackBuffer", elapsedMs(profileStart));
     return true;
   }
 
-  return resizeBackBuffer(pixelWidth, pixelHeight);
+  const bool resized = resizeBackBuffer(pixelWidth, pixelHeight);
+  if (profilingEnabled_) profileSection("ensureBackBuffer", elapsedMs(profileStart));
+  return resized;
 }
 
 bool SdlBlend2DRenderer::resizeBackBuffer(int width, int height) {
@@ -136,6 +174,7 @@ bool SdlBlend2DRenderer::resizeBackBuffer(int width, int height) {
 }
 
 bool SdlBlend2DRenderer::beginFrame(double seconds) {
+  const auto profileStart = Clock::now();
   if (!ensureBackBuffer()) return false;
   if (frameActive_) {
     context_.end();
@@ -153,12 +192,19 @@ bool SdlBlend2DRenderer::beginFrame(double seconds) {
   context_.set_comp_op(BL_COMP_OP_SRC_COPY);
   context_.fill_all(BLRgba32(0xFFF7F8FAu));
   context_.set_comp_op(BL_COMP_OP_SRC_OVER);
+  if (profilingEnabled_) {
+    ++profileFrames_;
+    profileSection("beginFrame", elapsedMs(profileStart));
+  }
   return true;
 }
 
 bool SdlBlend2DRenderer::endFrame() {
+  const auto profileStart = Clock::now();
   if (!frameActive_) return false;
+  const auto contextEndStart = Clock::now();
   context_.end();
+  if (profilingEnabled_) profileSection("contextEnd", elapsedMs(contextEndStart));
   frameActive_ = false;
 
   mousePressed_ = false;
@@ -168,10 +214,16 @@ bool SdlBlend2DRenderer::endFrame() {
   wheelY_ = 0.0;
   textInputEvents_.clear();
   keyEvents_.clear();
-  return uploadBlend2DImage();
+  const bool uploaded = uploadBlend2DImage();
+  if (profilingEnabled_) {
+    profileSection("endFrame", elapsedMs(profileStart));
+    profileMaybeReport();
+  }
+  return uploaded;
 }
 
 bool SdlBlend2DRenderer::uploadBlend2DImage() {
+  const auto profileStart = Clock::now();
   BLImageData data;
   if (image_.get_data(&data) != BL_SUCCESS) {
     std::cerr << "BLImage::get_data failed\n";
@@ -182,15 +234,52 @@ bool SdlBlend2DRenderer::uploadBlend2DImage() {
     std::cerr << "SDL_UpdateTexture failed: " << SDL_GetError() << "\n";
     return false;
   }
+  if (profilingEnabled_) profileSection("uploadTexture", elapsedMs(profileStart));
   return true;
 }
 
 void SdlBlend2DRenderer::present() {
+  const auto profileStart = Clock::now();
   if (!renderer_ || !texture_) return;
   SDL_SetRenderDrawColor(renderer_, 17, 24, 39, 255);
   SDL_RenderClear(renderer_);
   SDL_RenderTexture(renderer_, texture_, nullptr, nullptr);
   SDL_RenderPresent(renderer_);
+  if (profilingEnabled_) profileSection("present", elapsedMs(profileStart));
+}
+
+void SdlBlend2DRenderer::profileSection(const std::string& name, double elapsedMs) {
+  if (!profilingEnabled_) return;
+  UI_ProfileBucket& bucket = profileBuckets_[name];
+  bucket.totalMs += elapsedMs;
+  bucket.maxMs = std::max(bucket.maxMs, elapsedMs);
+  ++bucket.samples;
+}
+
+void SdlBlend2DRenderer::profileMaybeReport() {
+  if (!profilingEnabled_ || profileFrames_ < 120) return;
+
+  std::vector<std::pair<std::string, UI_ProfileBucket>> buckets(profileBuckets_.begin(), profileBuckets_.end());
+  std::sort(buckets.begin(), buckets.end(), [](const auto& a, const auto& b) {
+    const double avgA = a.second.samples > 0 ? a.second.totalMs / static_cast<double>(a.second.samples) : 0.0;
+    const double avgB = b.second.samples > 0 ? b.second.totalMs / static_cast<double>(b.second.samples) : 0.0;
+    return avgA > avgB;
+  });
+
+  std::ostringstream report;
+  report << "\nBlend2DUI profile over " << profileFrames_ << " frames\n";
+  for (const auto& [name, bucket] : buckets) {
+    if (bucket.samples <= 0) continue;
+    const double average = bucket.totalMs / static_cast<double>(bucket.samples);
+    report << "  " << name << ": avg " << average << " ms, max " << bucket.maxMs << " ms, samples " << bucket.samples << "\n";
+  }
+  const std::string text = report.str();
+  std::cout << text;
+  std::ofstream log(profileLogPath(), std::ios::app);
+  log << text;
+
+  profileFrames_ = 0;
+  profileBuckets_.clear();
 }
 
 }  // namespace Blend2DUI

@@ -1,9 +1,9 @@
 #include "Blend2DUI/SdlBlend2DRenderer.h"
 #include "Blend2DUI/FontManager.h"
+#include "Blend2DUI/Utility.h"
 
 #include <algorithm>
 #include <chrono>
-#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -17,19 +17,8 @@
 namespace Blend2DUI {
 namespace {
 
-bool contains(const BLRect& rect, double x, double y) {
-  return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
-}
-
 BLRect insetRect(const BLRect& rect, double x, double y) {
   return BLRect(rect.x + x, rect.y + y, std::max(0.0, rect.w - x * 2.0), std::max(0.0, rect.h - y * 2.0));
-}
-
-std::string lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
 }
 
 std::string extensionType(const std::filesystem::path& path, bool directory) {

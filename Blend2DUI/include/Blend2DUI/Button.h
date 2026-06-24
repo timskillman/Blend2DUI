@@ -26,6 +26,7 @@ enum class UI_ButtonGradientHoverMode {
 };
 
 struct UI_ButtonResources;
+class UI_ShapedTextCache;
 
 struct UI_ButtonContent {
   UI_ButtonContent(std::string_view textValue = {},
@@ -85,6 +86,7 @@ class UI_ButtonStyleDefinition {
 struct UI_ButtonResources {
   std::unordered_map<std::string, BLImage>* images = nullptr;
   std::unordered_map<std::string, BLFontFace>* fonts = nullptr;
+  UI_ShapedTextCache* shapedText = nullptr;
   std::string assetBasePath = ".";
 };
 

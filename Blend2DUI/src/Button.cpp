@@ -1,48 +1,18 @@
 #include "Blend2DUI/SdlBlend2DRenderer.h"
 #include "Blend2DUI/FontManager.h"
+#include "Blend2DUI/ShapedTextCache.h"
+#include "Blend2DUI/Utility.h"
 #include "SvgRender/SvgRenderer.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <filesystem>
-#include <sstream>
 
 namespace Blend2DUI {
 namespace {
 
-std::string trim(std::string value) {
-  const auto begin = std::find_if_not(value.begin(), value.end(), [](unsigned char ch) { return std::isspace(ch); });
-  const auto end = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch) { return std::isspace(ch); }).base();
-  if (begin >= end) return {};
-  return std::string(begin, end);
-}
-
-std::string lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
-}
-
 bool hasSvgExtension(const std::filesystem::path& path) {
   return lower(path.extension().string()) == ".svg";
-}
-
-std::string unquote(std::string value) {
-  value = trim(value);
-  if (value.size() >= 2) {
-    const char first = value.front();
-    const char last = value.back();
-    if ((first == '\'' && last == '\'') || (first == '"' && last == '"') || (first == '`' && last == '`')) {
-      return value.substr(1, value.size() - 2);
-    }
-  }
-  return value;
-}
-
-bool contains(const BLRect& rect, double x, double y) {
-  return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
 }
 
 BLRect insetRect(const BLRect& rect, double inset) {
@@ -52,88 +22,15 @@ BLRect insetRect(const BLRect& rect, double inset) {
                 std::max(0.0, rect.h - inset * 2.0));
 }
 
-double clampCorner(double corner, const BLRect& rect) {
-  return std::max(0.0, std::min(corner, std::min(rect.w, rect.h) * 0.5));
-}
-
-uint32_t parseColour(const std::string& value, uint32_t fallback) {
-  std::string text = trim(unquote(value));
-  if (!text.empty() && text.front() == '#') text.erase(text.begin());
-  if (text.size() != 6 && text.size() != 8) return fallback;
-
-  uint32_t parsed = 0;
-  std::istringstream stream(text);
-  stream >> std::hex >> parsed;
-  if (!stream) return fallback;
-
-  if (text.size() == 6) return 0xFF000000u | parsed;
-  return parsed;
-}
-
-double parseDouble(const std::string& value, double fallback) {
-  try {
-    size_t consumed = 0;
-    const double parsed = std::stod(trim(unquote(value)), &consumed);
-    return consumed > 0 ? parsed : fallback;
-  } catch (...) {
-    return fallback;
-  }
-}
-
 UI_ButtonGradientHoverMode parseGradientHoverMode(const std::string& value) {
   const std::string mode = lower(unquote(value));
   if (mode == "cycle") return UI_ButtonGradientHoverMode::Cycle;
   return UI_ButtonGradientHoverMode::None;
 }
 
-std::vector<std::string> splitTopLevel(const std::string& text) {
-  std::vector<std::string> parts;
-  std::string current;
-  char quote = 0;
-  int bracketDepth = 0;
-
-  for (size_t i = 0; i < text.size(); ++i) {
-    const char ch = text[i];
-    if (quote) {
-      current.push_back(ch);
-      if (ch == quote) quote = 0;
-      continue;
-    }
-
-    if (ch == '\'' || ch == '"' || ch == '`') {
-      quote = ch;
-      current.push_back(ch);
-      continue;
-    }
-
-    if (ch == '[') ++bracketDepth;
-    if (ch == ']') bracketDepth = std::max(0, bracketDepth - 1);
-
-    const bool decimalPoint = ch == '.' && i > 0 && i + 1 < text.size() &&
-                              std::isdigit(static_cast<unsigned char>(text[i - 1])) &&
-                              std::isdigit(static_cast<unsigned char>(text[i + 1]));
-    if ((ch == ',' || (ch == '.' && !decimalPoint)) && bracketDepth == 0) {
-      if (!trim(current).empty()) parts.push_back(trim(current));
-      current.clear();
-      continue;
-    }
-    current.push_back(ch);
-  }
-
-  if (!trim(current).empty()) parts.push_back(trim(current));
-  return parts;
-}
-
 std::vector<uint32_t> parseGradients(const std::string& value) {
-  const size_t begin = value.find('[');
-  const size_t end = value.rfind(']');
-  if (begin == std::string::npos || end == std::string::npos || end <= begin) return {};
-
-  std::vector<uint32_t> colours;
-  for (const std::string& part : splitTopLevel(value.substr(begin + 1, end - begin - 1))) {
-    if (colours.size() >= 10) break;
-    colours.push_back(parseColour(part, 0xFFFFFFFFu));
-  }
+  std::vector<uint32_t> colours = parseGradientColours(value);
+  if (colours.size() > 10) colours.resize(10);
   return colours;
 }
 
@@ -254,23 +151,25 @@ void drawText(BLContext& ctx,
               UI_ButtonResources& resources) {
   if (text.empty()) return;
 
-  BLFont font = FontManager::loadFont(resources, style);
-  if (!font.is_valid()) return;
+  const UI_ShapedText* shaped = resources.shapedText ? resources.shapedText->get(resources, style, text) : nullptr;
+  UI_ShapedText fallback;
+  if (!shaped) {
+    fallback.font = FontManager::loadFont(resources, style);
+    if (!fallback.font.is_valid()) return;
+    fallback.glyphs.set_utf8_text(text.data(), text.size());
+    fallback.font.shape(fallback.glyphs);
+    fallback.font.get_text_metrics(fallback.glyphs, fallback.textMetrics);
+    fallback.fontMetrics = fallback.font.metrics();
+    shaped = &fallback;
+  }
 
-  BLGlyphBuffer glyphs;
-  BLTextMetrics textMetrics;
-  BLFontMetrics fontMetrics = font.metrics();
-  glyphs.set_utf8_text(text.data(), text.size());
-  font.shape(glyphs);
-  font.get_text_metrics(glyphs, textMetrics);
-
-  const double textWidth = textMetrics.bounding_box.x1 - textMetrics.bounding_box.x0;
-  const double textHeight = fontMetrics.ascent + fontMetrics.descent;
-  const double x = textRect.x + (textRect.w - textWidth) * 0.5 - textMetrics.bounding_box.x0;
-  const double y = textRect.y + (textRect.h - textHeight) * 0.5 + fontMetrics.ascent;
+  const double textWidth = shaped->textMetrics.bounding_box.x1 - shaped->textMetrics.bounding_box.x0;
+  const double textHeight = shaped->fontMetrics.ascent + shaped->fontMetrics.descent;
+  const double x = textRect.x + (textRect.w - textWidth) * 0.5 - shaped->textMetrics.bounding_box.x0;
+  const double y = textRect.y + (textRect.h - textHeight) * 0.5 + shaped->fontMetrics.ascent;
 
   ctx.set_fill_style(BLRgba32(style.textColour));
-  ctx.fill_glyph_run(BLPoint(x, y), font, glyphs.glyph_run());
+  ctx.fill_glyph_run(BLPoint(x, y), shaped->font, shaped->glyphs.glyph_run());
 }
 
 void drawHint(BLContext& ctx,
@@ -282,18 +181,20 @@ void drawHint(BLContext& ctx,
 
   UI_ButtonStyle hintStyle = style;
   hintStyle.fontSize = std::max(11.0, style.fontSize - 1.0);
-  BLFont font = FontManager::loadFont(resources, hintStyle);
-  if (!font.is_valid()) return;
+  const UI_ShapedText* shaped = resources.shapedText ? resources.shapedText->get(resources, hintStyle, hint) : nullptr;
+  UI_ShapedText fallback;
+  if (!shaped) {
+    fallback.font = FontManager::loadFont(resources, hintStyle);
+    if (!fallback.font.is_valid()) return;
+    fallback.glyphs.set_utf8_text(hint.data(), hint.size());
+    fallback.font.shape(fallback.glyphs);
+    fallback.font.get_text_metrics(fallback.glyphs, fallback.textMetrics);
+    fallback.fontMetrics = fallback.font.metrics();
+    shaped = &fallback;
+  }
 
-  BLGlyphBuffer glyphs;
-  BLTextMetrics metrics;
-  BLFontMetrics fontMetrics = font.metrics();
-  glyphs.set_utf8_text(hint.data(), hint.size());
-  font.shape(glyphs);
-  font.get_text_metrics(glyphs, metrics);
-
-  const double textWidth = metrics.bounding_box.x1 - metrics.bounding_box.x0;
-  const double textHeight = fontMetrics.ascent + fontMetrics.descent;
+  const double textWidth = shaped->textMetrics.bounding_box.x1 - shaped->textMetrics.bounding_box.x0;
+  const double textHeight = shaped->fontMetrics.ascent + shaped->fontMetrics.descent;
   const double boxW = textWidth + 18.0;
   const double boxH = textHeight + 12.0;
   double x = buttonRect.x + (buttonRect.w - boxW) * 0.5;
@@ -304,7 +205,9 @@ void drawHint(BLContext& ctx,
   ctx.set_fill_style(BLRgba32(0xEE111827u));
   ctx.fill_round_rect(BLRoundRect(x, y, boxW, boxH, 5.0));
   ctx.set_fill_style(BLRgba32(0xFFFFFFFFu));
-  ctx.fill_glyph_run(BLPoint(x + 9.0 - metrics.bounding_box.x0, y + 6.0 + fontMetrics.ascent), font, glyphs.glyph_run());
+  ctx.fill_glyph_run(BLPoint(x + 9.0 - shaped->textMetrics.bounding_box.x0, y + 6.0 + shaped->fontMetrics.ascent),
+                     shaped->font,
+                     shaped->glyphs.glyph_run());
 }
 
 }  // namespace

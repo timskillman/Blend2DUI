@@ -1,6 +1,8 @@
 #include "Blend2DUI/TextInput.h"
 #include "Blend2DUI/FontManager.h"
+#include "Blend2DUI/ShapedTextCache.h"
 #include "Blend2DUI/SdlBlend2DRenderer.h"
+#include "Blend2DUI/Utility.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,10 +16,7 @@ constexpr double kHandleSize = 14.0;
 constexpr double kScrollbarWidth = 10.0;
 constexpr double kScrollbarHitWidth = 18.0;
 constexpr size_t kMaxHistorySnapshots = 100;
-
-bool contains(const BLRect& rect, double x, double y) {
-  return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
-}
+constexpr size_t kShapedTextCacheMinBytes = 96;
 
 BLRect insetRect(const BLRect& rect, double inset) {
   return BLRect(rect.x + inset, rect.y + inset, std::max(0.0, rect.w - inset * 2.0), std::max(0.0, rect.h - inset * 2.0));
@@ -28,10 +27,6 @@ BLRect insetRect(const BLRect& rect, double insetX, double insetY) {
                 rect.y + insetY,
                 std::max(0.0, rect.w - insetX * 2.0),
                 std::max(0.0, rect.h - insetY * 2.0));
-}
-
-double clampCorner(double corner, const BLRect& rect) {
-  return std::max(0.0, std::min(corner, std::min(rect.w, rect.h) * 0.5));
 }
 
 bool isContinuation(unsigned char ch) {
@@ -350,6 +345,36 @@ bool redoTextEdit(std::string& text, UI_TextInputState& state) {
 
 }  // namespace
 
+UI_TextInputOptions::UI_TextInputOptions(std::string_view optionsText) {
+  for (const std::string& rawPart : splitTopLevel(std::string(optionsText))) {
+    const size_t colon = rawPart.find(':');
+    if (colon == std::string::npos) continue;
+    const std::string key = lower(trim(rawPart.substr(0, colon)));
+    const std::string value = trim(rawPart.substr(colon + 1));
+
+    if (key == "mode") {
+      const std::string modeText = lower(unquote(value));
+      mode = (modeText == "multi" || modeText == "multiline" || modeText == "multi-line")
+                 ? UI_TextInputMode::MultiLine
+                 : UI_TextInputMode::SingleLine;
+    } else if (key == "filter") {
+      const std::string filterText = lower(unquote(value));
+      if (filterText == "numbers" || filterText == "number" || filterText == "numeric") filter = UI_TextInputFilter::Numbers;
+      else if (filterText == "calculator" || filterText == "calc") filter = UI_TextInputFilter::Calculator;
+      else if (filterText == "password" || filterText == "hidden") filter = UI_TextInputFilter::Password;
+      else filter = UI_TextInputFilter::All;
+    } else if (key == "resizable" || key == "resize") {
+      resizable = parseBool(value, resizable);
+    } else if (key == "passwordvisible" || key == "showpassword" || key == "passwordshown") {
+      passwordVisible = parseBool(value, passwordVisible);
+    } else if (key == "maxlength" || key == "max") {
+      maxLength = parseSizeT(value, maxLength);
+    } else if (key == "placeholder" || key == "hint") {
+      placeholder = unquote(value);
+    }
+  }
+}
+
 TextInput::TextInput(std::string id,
                      BLRect rect,
                      const UI_TextInputOptions& options,
@@ -663,21 +688,37 @@ bool TextInput::render(BLContext& ctx,
     if (line.end > line.begin) {
       const VisibleTextRun run = visibleTextRunForClip(visibleText, line, x, textRect.x, textRect.w);
       if (run.end > run.begin) {
-        BLGlyphBuffer glyphs;
-        glyphs.set_utf8_text(visibleText.data() + run.begin, run.end - run.begin);
-        font.shape(glyphs);
+        const std::string_view runText(visibleText.data() + run.begin, run.end - run.begin);
+        const UI_ShapedText* shaped = resources.shapedText && runText.size() >= kShapedTextCacheMinBytes
+                                          ? resources.shapedText->get(resources, renderStyle, runText)
+                                          : nullptr;
         ctx.set_fill_style(BLRgba32(style.textColour));
-        ctx.fill_glyph_run(BLPoint(run.x, y + fontMetrics.ascent + 2.0), font, glyphs.glyph_run());
+        if (shaped) {
+          ctx.fill_glyph_run(BLPoint(run.x, y + shaped->fontMetrics.ascent + 2.0), shaped->font, shaped->glyphs.glyph_run());
+        } else {
+          BLGlyphBuffer glyphs;
+          glyphs.set_utf8_text(runText.data(), runText.size());
+          font.shape(glyphs);
+          ctx.fill_glyph_run(BLPoint(run.x, y + fontMetrics.ascent + 2.0), font, glyphs.glyph_run());
+        }
       }
     }
   }
   if (text.empty() && !options_.placeholder.empty() && focusedTextInputId != id_) {
     ctx.set_fill_style(BLRgba32((style.textColour & 0x00FFFFFFu) | 0x77000000u));
-    BLGlyphBuffer glyphs;
-    glyphs.set_utf8_text(options_.placeholder.data(), options_.placeholder.size());
-    font.shape(glyphs);
+    const UI_ShapedText* shaped =
+        resources.shapedText && options_.placeholder.size() >= kShapedTextCacheMinBytes
+            ? resources.shapedText->get(resources, renderStyle, options_.placeholder)
+            : nullptr;
     const double y = multiLine ? textRect.y : textRect.y + std::max(0.0, (textRect.h - lineHeight) * 0.5);
-    ctx.fill_glyph_run(BLPoint(textRect.x, y + fontMetrics.ascent + 2.0), font, glyphs.glyph_run());
+    if (shaped) {
+      ctx.fill_glyph_run(BLPoint(textRect.x, y + shaped->fontMetrics.ascent + 2.0), shaped->font, shaped->glyphs.glyph_run());
+    } else {
+      BLGlyphBuffer glyphs;
+      glyphs.set_utf8_text(options_.placeholder.data(), options_.placeholder.size());
+      font.shape(glyphs);
+      ctx.fill_glyph_run(BLPoint(textRect.x, y + fontMetrics.ascent + 2.0), font, glyphs.glyph_run());
+    }
   }
   if (focusedTextInputId == id_ && std::fmod(seconds, 1.0) < 0.55) {
     const UI_TextInputLayoutLine& line = renderLines[caretLine];

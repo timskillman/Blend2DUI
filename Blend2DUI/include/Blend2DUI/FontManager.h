@@ -19,7 +19,6 @@ class FontManager {
 
  private:
   static bool hasFontExtension(const std::string& name);
-  static std::string lower(std::string value);
   static std::filesystem::path resolveAssetPath(const std::string& assetBasePath, const std::string& path);
   static std::filesystem::path windowsFontsDirectory();
   static void appendWindowsFontCandidate(std::vector<std::filesystem::path>& candidates,

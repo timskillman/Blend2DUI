@@ -1,7 +1,6 @@
 #include "Blend2DUI/FontManager.h"
+#include "Blend2DUI/Utility.h"
 
-#include <algorithm>
-#include <cctype>
 #include <cstdlib>
 
 namespace Blend2DUI {
@@ -26,13 +25,6 @@ void appendAncestorAssetCandidates(std::vector<std::filesystem::path>& candidate
 }
 
 }  // namespace
-
-std::string FontManager::lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
-}
 
 bool FontManager::hasFontExtension(const std::string& name) {
   const std::string ext = lower(std::filesystem::path(name).extension().string());

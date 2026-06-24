@@ -47,9 +47,12 @@ add_library(Blend2DUI
   src/Button.cpp
   src/FileDialog.cpp
   src/FontManager.cpp
+  src/Layout.cpp
   src/SceneManager.cpp
+  src/ShapedTextCache.cpp
   src/Slider.cpp
   src/TextInput.cpp
+  src/Utility.cpp
 )
 
 target_include_directories(Blend2DUI
@@ -80,6 +83,7 @@ target_link_libraries(blend2d_ui_demo PRIVATE Blend2DUI)
 
 add_executable(blend2d_ui_file_dialog_filter_test
   tests/file_dialog_filter_test.cpp
+  src/Utility.cpp
 )
 
 target_include_directories(blend2d_ui_file_dialog_filter_test

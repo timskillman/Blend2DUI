@@ -112,6 +112,40 @@ For single-config generators on Linux:
 
 The demo exercises the reusable UI controls, including buttons, horizontal and vertical sliders, single-line text input, multi-line text input, scrollbars, quick links, and the file dialog.
 
+To profile the render loop, set `BLEND2DUI_PROFILE=1` before launching the demo. The app prints averaged timings every 120 frames for renderer stages and demo UI sections such as menu, inputs, sliders, canvas, file dialog, texture upload, and present.
+
+```powershell
+$env:BLEND2DUI_PROFILE = "1"
+.\build\Blend2DUI\Debug\blend2d_ui_demo.exe
+```
+
+## Auto UI Layout
+
+`Blend2DUI` includes an optional cursor layout layer for controls that do not need absolute `BLRect` placement. Define a styled `UI_RectArea`, call `UI_CursorRect(area)`, then draw widgets with size strings such as `"80x40"`, `"10%x40"`, or `"15%x50%"`. Percentages are resolved against the active rectangle drawable area, so they update when the area changes.
+
+```cpp
+UI_RectStyleDefinition panelStyle("Padding:16, RectFill:#FFFFFF, RectStroke:#D0D7E2, RectStrokeWidth:1, RectCorner:8");
+UI_RectArea panel;
+panel.SetRect(BLRect(28, 28, width - 56, 72), panelStyle);
+
+UI_CursorRect(panel);
+UI_CursorLeft(14);
+UI_Button("select", "132x40", buttonStyle, UI_ButtonContent("Select"));
+UI_Button("load", "15%x40", buttonStyle, UI_ButtonContent("Load..."));
+```
+
+Cursor helpers include `UI_CursorSave`, `UI_CursorUse`, `UI_CursorOffset`, `UI_CursorNext`, `UI_CursorLeft`, `UI_CursorRight`, `UI_CursorTop`, `UI_CursorBottom`, `UI_CursorVerticalCenter`, `UI_CursorHorizontalCenter`, `UI_CursorLine`, and `UI_CursorGap`. Size-string overloads are currently available for buttons, text inputs, and sliders. Controls are clipped to the active rectangle drawable area, and regions outside that drawable area do not receive pointer selection.
+
+Text input and slider options also accept string definitions:
+
+```cpp
+UI_TextInputOptions textOptions("Mode:MultiLine, Resizable:true, Placeholder:'Notes'");
+UI_TextInput("notes", "480x120", textOptions, notesText, inputStyle);
+
+UI_SliderOptions sliderOptions("Heading:'Volume', Min:0, Max:100, Default:50, Step:1, Integer:true, Thumb:Circle");
+UI_Slider("volume", "360x58", sliderOptions, volume, sliderStyle);
+```
+
 ## Run The Shapes Demo
 
 By default the shapes demo writes `blend2d_shapes_demo.png` and auto-detects common Linux, Raspberry Pi, macOS, and Windows font paths.

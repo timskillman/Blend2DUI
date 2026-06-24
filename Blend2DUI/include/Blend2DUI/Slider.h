@@ -7,6 +7,7 @@
 #include <blend2d/blend2d.h>
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Blend2DUI {
@@ -34,6 +35,9 @@ struct UI_SliderArtwork {
 };
 
 struct UI_SliderOptions {
+  UI_SliderOptions() = default;
+  explicit UI_SliderOptions(std::string_view optionsText);
+
   UI_SliderOrientation orientation = UI_SliderOrientation::Horizontal;
   UI_SliderThumbShape thumbShape = UI_SliderThumbShape::Circle;
   UI_SliderArtwork artwork;

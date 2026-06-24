@@ -1,9 +1,10 @@
 #include "Blend2DUI/SdlBlend2DRenderer.h"
 #include "Blend2DUI/FontManager.h"
+#include "Blend2DUI/ShapedTextCache.h"
+#include "Blend2DUI/Utility.h"
 #include "SvgRender/SvgRenderer.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
@@ -18,10 +19,6 @@ constexpr double kValueWidth = 76.0;
 constexpr double kButtonSize = 22.0;
 constexpr double kArrowGap = 4.0;
 constexpr double kThumbSize = 18.0;
-
-bool contains(const BLRect& rect, double x, double y) {
-  return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
-}
 
 double clampValue(double value, double minValue, double maxValue) {
   if (minValue > maxValue) std::swap(minValue, maxValue);
@@ -44,13 +41,6 @@ double valueRatio(double value, const UI_SliderOptions& options) {
   const double span = options.maxValue - options.minValue;
   if (std::abs(span) < 0.0000001) return 0.0;
   return clampValue((value - options.minValue) / span, 0.0, 1.0);
-}
-
-std::string lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
 }
 
 bool hasSvgExtension(const std::filesystem::path& path) {
@@ -111,19 +101,25 @@ void drawText(BLContext& ctx,
               uint32_t colour,
               bool centered = false) {
   if (text.empty()) return;
-  BLFont font = FontManager::loadFont(resources, style);
-  if (!font.is_valid()) return;
+  const UI_ShapedText* shaped = resources.shapedText ? resources.shapedText->get(resources, style, text) : nullptr;
+  UI_ShapedText fallback;
+  if (!shaped) {
+    fallback.font = FontManager::loadFont(resources, style);
+    if (!fallback.font.is_valid()) return;
+    fallback.glyphs.set_utf8_text(text.data(), text.size());
+    fallback.font.shape(fallback.glyphs);
+    fallback.font.get_text_metrics(fallback.glyphs, fallback.textMetrics);
+    fallback.fontMetrics = fallback.font.metrics();
+    shaped = &fallback;
+  }
 
-  BLGlyphBuffer glyphs;
-  glyphs.set_utf8_text(text.data(), text.size());
-  font.shape(glyphs);
-  BLTextMetrics metrics;
-  font.get_text_metrics(glyphs, metrics);
-  const BLFontMetrics fontMetrics = font.metrics();
-  const double x = centered ? rect.x + (rect.w - metrics.bounding_box.x1 + metrics.bounding_box.x0) * 0.5 : rect.x;
-  const double y = rect.y + (rect.h - (fontMetrics.ascent + fontMetrics.descent)) * 0.5 + fontMetrics.ascent;
+  const double x = centered
+                       ? rect.x + (rect.w - shaped->textMetrics.bounding_box.x1 + shaped->textMetrics.bounding_box.x0) * 0.5
+                       : rect.x;
+  const double y = rect.y + (rect.h - (shaped->fontMetrics.ascent + shaped->fontMetrics.descent)) * 0.5 +
+                   shaped->fontMetrics.ascent;
   ctx.set_fill_style(BLRgba32(colour));
-  ctx.fill_glyph_run(BLPoint(x, y), font, glyphs.glyph_run());
+  ctx.fill_glyph_run(BLPoint(x, y), shaped->font, shaped->glyphs.glyph_run());
 }
 
 std::string formatValue(double value, const UI_SliderOptions& options) {
@@ -358,6 +354,48 @@ void drawStepButton(BLContext& ctx,
 }
 
 }  // namespace
+
+UI_SliderOptions::UI_SliderOptions(std::string_view optionsText) {
+  for (const std::string& rawPart : splitTopLevel(std::string(optionsText))) {
+    const size_t colon = rawPart.find(':');
+    if (colon == std::string::npos) continue;
+    const std::string key = lower(trim(rawPart.substr(0, colon)));
+    const std::string value = trim(rawPart.substr(colon + 1));
+
+    if (key == "orientation") {
+      const std::string text = lower(unquote(value));
+      orientation = (text == "vertical" || text == "v") ? UI_SliderOrientation::Vertical : UI_SliderOrientation::Horizontal;
+    } else if (key == "thumb" || key == "thumbshape") {
+      const std::string text = lower(unquote(value));
+      if (text == "diamond") thumbShape = UI_SliderThumbShape::Diamond;
+      else if (text == "triangleup" || text == "up" || text == "arrowup") thumbShape = UI_SliderThumbShape::TriangleUp;
+      else if (text == "triangledown" || text == "down" || text == "arrowdown") thumbShape = UI_SliderThumbShape::TriangleDown;
+      else thumbShape = UI_SliderThumbShape::Circle;
+    } else if (key == "heading" || key == "title") {
+      heading = unquote(value);
+    } else if (key == "min" || key == "minvalue") {
+      minValue = parseDouble(value, minValue);
+    } else if (key == "max" || key == "maxvalue") {
+      maxValue = parseDouble(value, maxValue);
+    } else if (key == "default" || key == "defaultvalue" || key == "value") {
+      defaultValue = parseDouble(value, defaultValue);
+    } else if (key == "step") {
+      step = parseDouble(value, step);
+    } else if (key == "integer" || key == "int") {
+      integer = parseBool(value, integer);
+    } else if (key == "showvalueentry" || key == "valueentry" || key == "entry") {
+      showValueEntry = parseBool(value, showValueEntry);
+    } else if (key == "showstepbuttons" || key == "stepbuttons" || key == "arrows") {
+      showStepButtons = parseBool(value, showStepButtons);
+    } else if (key == "litleftcap") artwork.litLeftCap = unquote(value);
+    else if (key == "litmiddle" || key == "litmid") artwork.litMiddle = unquote(value);
+    else if (key == "litrightcap") artwork.litRightCap = unquote(value);
+    else if (key == "unlitleftcap") artwork.unlitLeftCap = unquote(value);
+    else if (key == "unlitmiddle" || key == "unlitmid") artwork.unlitMiddle = unquote(value);
+    else if (key == "unlitrightcap") artwork.unlitRightCap = unquote(value);
+    else if (key == "thumbimage" || key == "thumbartwork" || key == "thumbsvg" || key == "thumbpng") artwork.thumb = unquote(value);
+  }
+}
 
 Slider::Slider(std::string id,
                BLRect rect,

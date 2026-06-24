@@ -6,6 +6,7 @@
 #include <blend2d/blend2d.h>
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Blend2DUI {
@@ -23,6 +24,9 @@ enum class UI_TextInputFilter {
 };
 
 struct UI_TextInputOptions {
+  UI_TextInputOptions() = default;
+  explicit UI_TextInputOptions(std::string_view optionsText);
+
   UI_TextInputMode mode = UI_TextInputMode::SingleLine;
   UI_TextInputFilter filter = UI_TextInputFilter::All;
   bool resizable = false;
