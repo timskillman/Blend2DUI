@@ -1,7 +1,7 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
-#include "Blend2DUI/FontManager.h"
-#include "Blend2DUI/ShapedTextCache.h"
-#include "Blend2DUI/Utility.h"
+#include "SceneRenderer.h"
+#include "FontManager.h"
+#include "ShapedTextCache.h"
+#include "Utility.h"
 #include "SvgRender/SvgRenderer.h"
 
 #include <algorithm>
@@ -405,7 +405,7 @@ Slider::Slider(std::string id,
                UI_SliderState& state)
     : id_(std::move(id)), rect_(rect), options_(options), style_(&style), value_(&value), state_(&state) {}
 
-bool SdlBlend2DRenderer::UI_Slider(const std::string& id,
+bool SceneRenderer::UI_Slider(const std::string& id,
                                    const BLRect& rect,
                                    const UI_SliderOptions& options,
                                    double& value,

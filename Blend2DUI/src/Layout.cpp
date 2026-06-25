@@ -1,5 +1,5 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
-#include "Blend2DUI/Utility.h"
+#include "SceneRenderer.h"
+#include "Utility.h"
 
 #include <algorithm>
 #include <cmath>
@@ -130,7 +130,7 @@ UI_Size UI_ParseSize(std::string_view sizeText) {
   return size;
 }
 
-void SdlBlend2DRenderer::UI_CursorRect(const UI_RectArea& area) {
+void SceneRenderer::UI_CursorRect(const UI_RectArea& area) {
   cursor_ = UI_CursorState();
   cursor_.area = area;
   cursor_.drawable = area.GetDrawableArea();
@@ -144,21 +144,21 @@ void SdlBlend2DRenderer::UI_CursorRect(const UI_RectArea& area) {
   if (frameActive_) drawArea(context_, area);
 }
 
-void SdlBlend2DRenderer::UI_CursorSave(const std::string& id) {
+void SceneRenderer::UI_CursorSave(const std::string& id) {
   savedCursors_[id] = cursor_;
 }
 
-void SdlBlend2DRenderer::UI_CursorUse(const std::string& id) {
+void SceneRenderer::UI_CursorUse(const std::string& id) {
   auto it = savedCursors_.find(id);
   if (it != savedCursors_.end()) cursor_ = it->second;
 }
 
-void SdlBlend2DRenderer::UI_CursorOffset(double x, double y) {
+void SceneRenderer::UI_CursorOffset(double x, double y) {
   cursor_.cursorX += x;
   cursor_.cursorY += y;
 }
 
-void SdlBlend2DRenderer::UI_CursorNext() {
+void SceneRenderer::UI_CursorNext() {
   if (!cursor_.active) return;
   if (cursor_.direction == UI_CursorDirection::Left || cursor_.direction == UI_CursorDirection::Right) {
     cursor_.cursorY += cursor_.lineExtent + cursor_.gap;
@@ -170,39 +170,39 @@ void SdlBlend2DRenderer::UI_CursorNext() {
   cursor_.lineExtent = 0.0;
 }
 
-void SdlBlend2DRenderer::UI_CursorLeft(int gap) {
+void SceneRenderer::UI_CursorLeft(int gap) {
   cursor_.direction = UI_CursorDirection::Left;
   cursor_.gap = static_cast<double>(std::max(0, gap));
   cursor_.cursorX = cursor_.drawable.x;
 }
 
-void SdlBlend2DRenderer::UI_CursorRight(int gap) {
+void SceneRenderer::UI_CursorRight(int gap) {
   cursor_.direction = UI_CursorDirection::Right;
   cursor_.gap = static_cast<double>(std::max(0, gap));
   cursor_.cursorX = cursor_.drawable.x + cursor_.drawable.w;
 }
 
-void SdlBlend2DRenderer::UI_CursorBottom(int gap) {
+void SceneRenderer::UI_CursorBottom(int gap) {
   cursor_.direction = UI_CursorDirection::Bottom;
   cursor_.gap = static_cast<double>(std::max(0, gap));
   cursor_.cursorY = cursor_.drawable.y + cursor_.drawable.h;
 }
 
-void SdlBlend2DRenderer::UI_CursorTop(int gap) {
+void SceneRenderer::UI_CursorTop(int gap) {
   cursor_.direction = UI_CursorDirection::Top;
   cursor_.gap = static_cast<double>(std::max(0, gap));
   cursor_.cursorY = cursor_.drawable.y;
 }
 
-void SdlBlend2DRenderer::UI_CursorVerticalCenter() {
+void SceneRenderer::UI_CursorVerticalCenter() {
   cursor_.centerNextY = true;
 }
 
-void SdlBlend2DRenderer::UI_CursorHorizontalCenter() {
+void SceneRenderer::UI_CursorHorizontalCenter() {
   cursor_.centerNextX = true;
 }
 
-void SdlBlend2DRenderer::UI_CursorLine() {
+void SceneRenderer::UI_CursorLine() {
   if (!cursor_.active || !frameActive_) return;
   const double offset = cursor_.gap;
   context_.set_stroke_style(BLRgba32(0x66708391u));
@@ -226,7 +226,7 @@ void SdlBlend2DRenderer::UI_CursorLine() {
   }
 }
 
-void SdlBlend2DRenderer::UI_CursorGap(int gap) {
+void SceneRenderer::UI_CursorGap(int gap) {
   const double amount = static_cast<double>(std::max(0, gap));
   if (cursor_.direction == UI_CursorDirection::Left) cursor_.cursorX += amount;
   else if (cursor_.direction == UI_CursorDirection::Right) cursor_.cursorX -= amount;
@@ -234,7 +234,7 @@ void SdlBlend2DRenderer::UI_CursorGap(int gap) {
   else cursor_.cursorY -= amount;
 }
 
-UI_Size SdlBlend2DRenderer::resolveLayoutSize(const std::string& size) const {
+UI_Size SceneRenderer::resolveLayoutSize(const std::string& size) const {
   UI_Size parsed = UI_ParseSize(size);
   if (cursor_.active) {
     if (parsed.wPercent) parsed.w = cursor_.drawable.w * parsed.w / 100.0;
@@ -245,7 +245,7 @@ UI_Size SdlBlend2DRenderer::resolveLayoutSize(const std::string& size) const {
   return parsed;
 }
 
-BLRect SdlBlend2DRenderer::layoutNextRect(double width, double height) {
+BLRect SceneRenderer::layoutNextRect(double width, double height) {
   if (!cursor_.active) return BLRect(0, 0, width, height);
 
   BLRect rect;
@@ -278,15 +278,15 @@ BLRect SdlBlend2DRenderer::layoutNextRect(double width, double height) {
   return rect;
 }
 
-bool SdlBlend2DRenderer::layoutRectVisible(const BLRect& rect) const {
+bool SceneRenderer::layoutRectVisible(const BLRect& rect) const {
   return !cursor_.active || intersects(rect, cursor_.drawable);
 }
 
-bool SdlBlend2DRenderer::layoutMouseInside() const {
+bool SceneRenderer::layoutMouseInside() const {
   return !cursor_.active || contains(cursor_.drawable, mouseX_, mouseY_);
 }
 
-UI_ButtonAction SdlBlend2DRenderer::UI_Button(const std::string& id,
+UI_ButtonAction SceneRenderer::UI_Button(const std::string& id,
                                               const std::string& size,
                                               const UI_ButtonStyleDefinition& style,
                                               const UI_ButtonContent& content) {
@@ -309,7 +309,7 @@ UI_ButtonAction SdlBlend2DRenderer::UI_Button(const std::string& id,
   return result;
 }
 
-bool SdlBlend2DRenderer::UI_TextInput(const std::string& id,
+bool SceneRenderer::UI_TextInput(const std::string& id,
                                       const std::string& size,
                                       const UI_TextInputOptions& options,
                                       std::string& text,
@@ -333,7 +333,7 @@ bool SdlBlend2DRenderer::UI_TextInput(const std::string& id,
   return result;
 }
 
-bool SdlBlend2DRenderer::UI_Slider(const std::string& id,
+bool SceneRenderer::UI_Slider(const std::string& id,
                                    const std::string& size,
                                    const UI_SliderOptions& options,
                                    double& value,

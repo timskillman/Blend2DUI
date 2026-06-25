@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Blend2DUI/Button.h"
+#include "Button.h"
 
 #include <blend2d/blend2d.h>
 

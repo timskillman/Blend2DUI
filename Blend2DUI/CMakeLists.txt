@@ -1,4 +1,13 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(Blend2DUI LANGUAGES C CXX)
+
 find_package(SDL3 CONFIG QUIET)
+
+get_filename_component(BLEND2D_DEMO_ROOT_DIR
+  "${CMAKE_CURRENT_LIST_DIR}/.."
+  ABSOLUTE
+)
 
 get_filename_component(BLEND2D_DEMO_DEFAULT_THIRD_PARTY_DIR
   "${CMAKE_CURRENT_LIST_DIR}/../../third_party"
@@ -43,12 +52,27 @@ if(NOT TARGET SDL3::SDL3 AND NOT TARGET PkgConfig::SDL3)
   return()
 endif()
 
+if(NOT TARGET SvgRender)
+  if(EXISTS "${BLEND2D_DEMO_ROOT_DIR}/SvgRender/CMakeLists.txt")
+    add_subdirectory("${BLEND2D_DEMO_ROOT_DIR}/SvgRender" "${CMAKE_BINARY_DIR}/SvgRender")
+  else()
+    message(FATAL_ERROR
+      "SvgRender was not found. Expected it at "
+      "${BLEND2D_DEMO_ROOT_DIR}/SvgRender")
+  endif()
+endif()
+
+get_filename_component(BLEND2D_DEMO_SOURCE_DIR
+  "${BLEND2D_DEMO_ROOT_DIR}/Blend2DUI-Demo"
+  ABSOLUTE
+)
+
 add_library(Blend2DUI
   src/Button.cpp
   src/FileDialog.cpp
   src/FontManager.cpp
   src/Layout.cpp
-  src/SceneManager.cpp
+  src/SceneRenderer.cpp
   src/ShapedTextCache.cpp
   src/Slider.cpp
   src/TextInput.cpp
@@ -75,11 +99,20 @@ endif()
 target_compile_features(Blend2DUI PUBLIC cxx_std_17)
 
 add_executable(blend2d_ui_demo
-  blend2d_ui_demo/SdlBlend2DRenderer.cpp
-  blend2d_ui_demo/demo.cpp
+  "${BLEND2D_DEMO_SOURCE_DIR}/DemoScreen.cpp"
+  "${BLEND2D_DEMO_SOURCE_DIR}/demo.cpp"
 )
 
 target_link_libraries(blend2d_ui_demo PRIVATE Blend2DUI)
+
+add_custom_command(
+  TARGET blend2d_ui_demo
+  POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E copy_directory
+          "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+          "$<TARGET_FILE_DIR:blend2d_ui_demo>/assets"
+  COMMENT "Copying Blend2DUI assets next to blend2d_ui_demo"
+)
 
 add_executable(blend2d_ui_file_dialog_filter_test
   tests/file_dialog_filter_test.cpp
@@ -106,7 +139,7 @@ target_compile_features(blend2d_ui_file_dialog_filter_test PRIVATE cxx_std_17)
 
 if(WIN32)
   set_target_properties(blend2d_ui_demo PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:blend2d_ui_demo>"
   )
 
   if(TARGET SDL3::SDL3)

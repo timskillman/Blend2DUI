@@ -1,6 +1,6 @@
-#include "Blend2DUI/ShapedTextCache.h"
+#include "ShapedTextCache.h"
 
-#include "Blend2DUI/FontManager.h"
+#include "FontManager.h"
 
 namespace Blend2DUI {
 

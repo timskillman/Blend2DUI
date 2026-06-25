@@ -1,6 +1,6 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
-#include "Blend2DUI/FontManager.h"
-#include "Blend2DUI/Utility.h"
+#include "SceneRenderer.h"
+#include "FontManager.h"
+#include "Utility.h"
 
 #include <algorithm>
 #include <chrono>
@@ -661,14 +661,14 @@ void refreshEntries(UI_FileDialogState& state, const UI_FileDialogOptions& optio
 
 }  // namespace
 
-bool SdlBlend2DRenderer::pointerCapturedByModal(const std::string& id) const {
+bool SceneRenderer::pointerCapturedByModal(const std::string& id) const {
   return modalPointerCaptureActive_ &&
          !modalPointerCaptureIdPrefix_.empty() &&
          id.rfind(modalPointerCaptureIdPrefix_, 0) != 0;
 }
 
 #ifndef BLEND2DUI_FILE_DIALOG_TEST_ACCESS
-UI_FileDialogResult SdlBlend2DRenderer::UI_FileDialog(const std::string& id,
+UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
                                                       const BLRect& requestedRect,
                                                       const UI_FileDialogOptions& options,
                                                       std::string& selectedPath) {

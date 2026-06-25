@@ -1,4 +1,4 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
+#include "SceneRenderer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -31,11 +31,11 @@ const char* profileLogPath() {
 
 }  // namespace
 
-SdlBlend2DRenderer::~SdlBlend2DRenderer() {
+SceneRenderer::~SceneRenderer() {
   shutdown();
 }
 
-bool SdlBlend2DRenderer::initialize(const std::string& title, int width, int height) {
+bool SceneRenderer::initialize(const std::string& title, int width, int height) {
   profilingEnabled_ = profileEnvironmentEnabled();
   if (profilingEnabled_) {
     std::ofstream log(profileLogPath(), std::ios::trunc);
@@ -69,7 +69,7 @@ bool SdlBlend2DRenderer::initialize(const std::string& title, int width, int hei
   return ensureBackBuffer();
 }
 
-void SdlBlend2DRenderer::shutdown() {
+void SceneRenderer::shutdown() {
   if (frameActive_) {
     context_.end();
     frameActive_ = false;
@@ -96,7 +96,7 @@ void SdlBlend2DRenderer::shutdown() {
   buttonResources_ = UI_ButtonResources();
 }
 
-bool SdlBlend2DRenderer::handleEvent(const SDL_Event& event) {
+bool SceneRenderer::handleEvent(const SDL_Event& event) {
   if (event.type == SDL_EVENT_QUIT) {
     return false;
   }
@@ -135,7 +135,7 @@ bool SdlBlend2DRenderer::handleEvent(const SDL_Event& event) {
   return true;
 }
 
-bool SdlBlend2DRenderer::ensureBackBuffer() {
+bool SceneRenderer::ensureBackBuffer() {
   const auto profileStart = Clock::now();
   if (!window_) return false;
 
@@ -154,7 +154,7 @@ bool SdlBlend2DRenderer::ensureBackBuffer() {
   return resized;
 }
 
-bool SdlBlend2DRenderer::resizeBackBuffer(int width, int height) {
+bool SceneRenderer::resizeBackBuffer(int width, int height) {
   if (texture_) {
     SDL_DestroyTexture(texture_);
     texture_ = nullptr;
@@ -173,7 +173,7 @@ bool SdlBlend2DRenderer::resizeBackBuffer(int width, int height) {
   return true;
 }
 
-bool SdlBlend2DRenderer::beginFrame(double seconds) {
+bool SceneRenderer::beginFrame(double seconds) {
   const auto profileStart = Clock::now();
   if (!ensureBackBuffer()) return false;
   if (frameActive_) {
@@ -199,7 +199,7 @@ bool SdlBlend2DRenderer::beginFrame(double seconds) {
   return true;
 }
 
-bool SdlBlend2DRenderer::endFrame() {
+bool SceneRenderer::endFrame() {
   const auto profileStart = Clock::now();
   if (!frameActive_) return false;
   const auto contextEndStart = Clock::now();
@@ -222,7 +222,7 @@ bool SdlBlend2DRenderer::endFrame() {
   return uploaded;
 }
 
-bool SdlBlend2DRenderer::uploadBlend2DImage() {
+bool SceneRenderer::uploadBlend2DImage() {
   const auto profileStart = Clock::now();
   BLImageData data;
   if (image_.get_data(&data) != BL_SUCCESS) {
@@ -238,7 +238,7 @@ bool SdlBlend2DRenderer::uploadBlend2DImage() {
   return true;
 }
 
-void SdlBlend2DRenderer::present() {
+void SceneRenderer::present() {
   const auto profileStart = Clock::now();
   if (!renderer_ || !texture_) return;
   SDL_SetRenderDrawColor(renderer_, 17, 24, 39, 255);
@@ -248,7 +248,7 @@ void SdlBlend2DRenderer::present() {
   if (profilingEnabled_) profileSection("present", elapsedMs(profileStart));
 }
 
-void SdlBlend2DRenderer::profileSection(const std::string& name, double elapsedMs) {
+void SceneRenderer::profileSection(const std::string& name, double elapsedMs) {
   if (!profilingEnabled_) return;
   UI_ProfileBucket& bucket = profileBuckets_[name];
   bucket.totalMs += elapsedMs;
@@ -256,7 +256,7 @@ void SdlBlend2DRenderer::profileSection(const std::string& name, double elapsedM
   ++bucket.samples;
 }
 
-void SdlBlend2DRenderer::profileMaybeReport() {
+void SceneRenderer::profileMaybeReport() {
   if (!profilingEnabled_ || profileFrames_ < 120) return;
 
   std::vector<std::pair<std::string, UI_ProfileBucket>> buckets(profileBuckets_.begin(), profileBuckets_.end());

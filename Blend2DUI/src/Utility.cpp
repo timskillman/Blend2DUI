@@ -1,4 +1,4 @@
-#include "Blend2DUI/Utility.h"
+#include "Utility.h"
 
 #include <algorithm>
 #include <cctype>

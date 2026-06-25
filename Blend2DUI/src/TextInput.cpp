@@ -1,8 +1,8 @@
-#include "Blend2DUI/TextInput.h"
-#include "Blend2DUI/FontManager.h"
-#include "Blend2DUI/ShapedTextCache.h"
-#include "Blend2DUI/SdlBlend2DRenderer.h"
-#include "Blend2DUI/Utility.h"
+#include "TextInput.h"
+#include "FontManager.h"
+#include "ShapedTextCache.h"
+#include "SceneRenderer.h"
+#include "Utility.h"
 
 #include <algorithm>
 #include <cmath>
@@ -383,7 +383,7 @@ TextInput::TextInput(std::string id,
                      UI_TextInputState& state)
     : id_(std::move(id)), rect_(rect), options_(options), style_(&style), text_(&text), state_(&state) {}
 
-bool SdlBlend2DRenderer::UI_TextInput(const std::string& id,
+bool SceneRenderer::UI_TextInput(const std::string& id,
                                       const BLRect& rect,
                                       const UI_TextInputOptions& options,
                                       std::string& text,

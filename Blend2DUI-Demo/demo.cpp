@@ -1,11 +1,12 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
+#include "DemoScreen.h"
 
 #include <SDL3/SDL.h>
 
 #include <chrono>
 
 int main(int, char**) {
-  Blend2DUI::SdlBlend2DRenderer app;
+  Blend2DUI::SceneRenderer app;
+  Blend2DUI::DemoScreen screen;
   if (!app.initialize("Blend2D UI SDL3 Demo", 960, 640)) {
     return 1;
   }
@@ -20,7 +21,7 @@ int main(int, char**) {
 
     const auto now = std::chrono::steady_clock::now();
     const double seconds = std::chrono::duration<double>(now - start).count();
-    if (app.renderDemoFrame(seconds)) {
+    if (screen.renderFrame(app, seconds)) {
       app.present();
     }
 

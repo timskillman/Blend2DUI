@@ -1,5 +1,5 @@
-#include "Blend2DUI/FontManager.h"
-#include "Blend2DUI/Utility.h"
+#include "FontManager.h"
+#include "Utility.h"
 
 #include <cstdlib>
 

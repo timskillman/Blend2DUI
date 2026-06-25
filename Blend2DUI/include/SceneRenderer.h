@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Blend2DUI/Button.h"
-#include "Blend2DUI/FileDialog.h"
-#include "Blend2DUI/Layout.h"
-#include "Blend2DUI/ShapedTextCache.h"
-#include "Blend2DUI/Slider.h"
-#include "Blend2DUI/TextInput.h"
+#include "Button.h"
+#include "FileDialog.h"
+#include "Layout.h"
+#include "ShapedTextCache.h"
+#include "Slider.h"
+#include "TextInput.h"
 
 #include <SDL3/SDL.h>
 #include <blend2d/blend2d.h>
@@ -22,13 +22,13 @@ struct UI_ProfileBucket {
   int samples = 0;
 };
 
-class SdlBlend2DRenderer {
+class SceneRenderer {
  public:
-  SdlBlend2DRenderer() = default;
-  ~SdlBlend2DRenderer();
+  SceneRenderer() = default;
+  ~SceneRenderer();
 
-  SdlBlend2DRenderer(const SdlBlend2DRenderer&) = delete;
-  SdlBlend2DRenderer& operator=(const SdlBlend2DRenderer&) = delete;
+  SceneRenderer(const SceneRenderer&) = delete;
+  SceneRenderer& operator=(const SceneRenderer&) = delete;
 
   bool initialize(const std::string& title, int width, int height);
   void shutdown();
@@ -81,11 +81,12 @@ class SdlBlend2DRenderer {
                                     const UI_FileDialogOptions& options,
                                     std::string& selectedPath);
   bool endFrame();
-  bool renderDemoFrame(double seconds);
   void present();
   bool profilingEnabled() const { return profilingEnabled_; }
   void profileSection(const std::string& name, double elapsedMs);
 
+  BLContext& context() { return context_; }
+  const BLContext& context() const { return context_; }
   int width() const { return width_; }
   int height() const { return height_; }
 

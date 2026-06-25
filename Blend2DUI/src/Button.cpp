@@ -1,7 +1,7 @@
-#include "Blend2DUI/SdlBlend2DRenderer.h"
-#include "Blend2DUI/FontManager.h"
-#include "Blend2DUI/ShapedTextCache.h"
-#include "Blend2DUI/Utility.h"
+#include "SceneRenderer.h"
+#include "FontManager.h"
+#include "ShapedTextCache.h"
+#include "Utility.h"
 #include "SvgRender/SvgRenderer.h"
 
 #include <algorithm>
@@ -241,7 +241,7 @@ const BLImage* UI_ButtonContent::preloadImage(UI_ButtonResources& resources) con
 Button::Button(std::string id, BLRect rect, const UI_ButtonStyleDefinition& style, const UI_ButtonContent& content)
     : id_(std::move(id)), rect_(rect), style_(&style), content_(&content) {}
 
-UI_ButtonAction SdlBlend2DRenderer::UI_Button(const std::string& id,
+UI_ButtonAction SceneRenderer::UI_Button(const std::string& id,
                                               const BLRect& rect,
                                               const UI_ButtonStyleDefinition& style,
                                               const UI_ButtonContent& content) {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Blend2DUI/Button.h"
-#include "Blend2DUI/TextInput.h"
+#include "Button.h"
+#include "TextInput.h"
 
 #include <SDL3/SDL.h>
 #include <blend2d/blend2d.h>
