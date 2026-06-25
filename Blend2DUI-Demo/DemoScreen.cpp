@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <cstdlib>
-#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -44,6 +42,12 @@ struct DemoButtonStyles {
 };
 
 const DemoButtonStyles kDemoStyles;
+const std::vector<Blend2DUI::UI_FileTypeFilter> kDemoFileFilters = {
+    {"All files", "*.*"},
+    {"PNG images", "*.png"},
+    {"SVG files", "*.svg"},
+    {"Text files", "*.txt"},
+};
 
 class DemoProfileScope {
  public:
@@ -102,32 +106,6 @@ std::unique_ptr<Blend2DUI::DemoPanel> makeDefaultPanel() {
   return std::make_unique<DefaultDemoPanel>();
 }
 
-Blend2DUI::UI_FileDialogResult showDialog(Blend2DUI::SceneRenderer& renderer,
-                                          Blend2DUI::UI_FileDialogMode fileDialogMode,
-                                          std::string& selectedFilePath,
-                                          const double width,
-                                          const double height) {
-  Blend2DUI::UI_FileDialogOptions dialogOptions;
-  dialogOptions.mode = fileDialogMode;
-  dialogOptions.title = fileDialogMode == Blend2DUI::UI_FileDialogMode::Save ? "Save Blend2D Output" : "Load File";
-  if (const char* home = std::getenv("HOME")) {
-    std::filesystem::path start = home;
-    const std::filesystem::path documents = start / "Documents";
-    if (std::filesystem::is_directory(documents)) start = documents;
-    dialogOptions.startPath = start;
-  }
-  dialogOptions.filters = {
-      {"All files", "*.*"},
-      {"PNG images", "*.png"},
-      {"SVG files", "*.svg"},
-      {"Text files", "*.txt"},
-  };
-  const double dialogW = std::min(820.0, std::max(560.0, width - 70.0));
-  const double dialogH = std::min(560.0, std::max(430.0, height - 56.0));
-  const BLRect dialogRect((width - dialogW) * 0.5, (height - dialogH) * 0.5, dialogW, dialogH);
-  return renderer.UI_FileDialog("demo-file-dialog", dialogRect, dialogOptions, selectedFilePath);
-}
-
 }  // namespace
 
 namespace Blend2DUI {
@@ -146,8 +124,12 @@ void DemoScreen::setPanel(std::unique_ptr<DemoPanel> panel) {
   panel_ = panel ? std::move(panel) : makeDefaultPanel();
 }
 
-void DemoScreen::openFileDialog(UI_FileDialogMode mode) {
+void DemoScreen::openFileDialog(UI_FileDialogMode mode,
+                                std::vector<UI_FileTypeFilter> filters,
+                                std::string defaultFileName) {
   fileDialogMode_ = mode;
+  fileDialogFilters_ = std::move(filters);
+  fileDialogDefaultFileName_ = std::move(defaultFileName);
   showFileDialog_ = true;
 }
 
@@ -169,7 +151,21 @@ bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   renderInputs(renderer, inputArea);
   renderSliders(renderer, width);
   renderPanel(renderer, seconds, pulse, width, height);
-  renderFileDialog(renderer, width, height, openedFileDialogThisFrame);
+
+  UI_FileDialogOptions dialogOptions;
+  dialogOptions.mode = fileDialogMode_;
+  dialogOptions.title = fileDialogMode_ == UI_FileDialogMode::Save ? "Save Blend2D Output" : "Load File";
+  dialogOptions.filters = fileDialogFilters_.empty() ? kDemoFileFilters : fileDialogFilters_;
+  dialogOptions.defaultFileName = fileDialogDefaultFileName_;
+  const UI_FileDialogResult fileDialogResult = Blend2DUI::renderFileDialog(renderer,
+                                                                           "demo-file-dialog",
+                                                                           showFileDialog_,
+                                                                           openedFileDialogThisFrame,
+                                                                           dialogOptions,
+                                                                           selectedFilePath_);
+  if (fileDialogResult == UI_FileDialogResult::Accepted) {
+    std::cout << (fileDialogMode_ == UI_FileDialogMode::Save ? "Save path: " : "Load path: ") << selectedFilePath_ << "\n";
+  }
 
   return renderer.endFrame();
 }
@@ -195,11 +191,11 @@ void DemoScreen::renderMenu(SceneRenderer& renderer,
     std::cout << "Image button pressed\n";
   }
   if (renderer.UI_Button("4", "104x40", kDemoStyles.neutral, UI_ButtonContent("Load...")) == UI_ButtonActionPressed) {
-    openFileDialog(UI_FileDialogMode::Open);
+    openFileDialog(UI_FileDialogMode::Open, kDemoFileFilters);
     openedFileDialogThisFrame = true;
   }
   if (renderer.UI_Button("5", "104x40", kDemoStyles.neutral, UI_ButtonContent("Save...")) == UI_ButtonActionPressed) {
-    openFileDialog(UI_FileDialogMode::Save);
+    openFileDialog(UI_FileDialogMode::Save, kDemoFileFilters, "blend2d-output.png");
     openedFileDialogThisFrame = true;
   }
 }
@@ -255,22 +251,6 @@ void DemoScreen::renderPanel(SceneRenderer& renderer,
 
   if (panel_) {
     panel_->render(*this, renderer, contentRect, seconds, pulse);
-  }
-}
-
-void DemoScreen::renderFileDialog(SceneRenderer& renderer,
-                                  double width,
-                                  double height,
-                                  bool openedFileDialogThisFrame) {
-  if (!showFileDialog_ || openedFileDialogThisFrame) return;
-
-  DemoProfileScope sectionProfile(renderer, "demo.fileDialog");
-  const UI_FileDialogResult result = showDialog(renderer, fileDialogMode_, selectedFilePath_, width, height);
-  if (result == UI_FileDialogResult::Accepted) {
-    std::cout << (fileDialogMode_ == UI_FileDialogMode::Save ? "Save path: " : "Load path: ") << selectedFilePath_ << "\n";
-    showFileDialog_ = false;
-  } else if (result == UI_FileDialogResult::Cancelled) {
-    showFileDialog_ = false;
   }
 }
 

@@ -11,6 +11,8 @@
 
 namespace Blend2DUI {
 
+class SceneRenderer;
+
 enum class UI_FileDialogMode {
   Open,
   Save
@@ -40,6 +42,7 @@ struct UI_FileDialogOptions {
   std::string title;
   std::filesystem::path startPath;
   std::vector<UI_FileTypeFilter> filters;
+  std::string defaultFileName;
 };
 
 struct UI_FileDialogEntry {
@@ -107,5 +110,17 @@ struct UI_FileDialogState {
   bool scanning = false;
   bool scanComplete = false;
 };
+
+UI_FileDialogResult showDialog(SceneRenderer& renderer,
+                               const std::string& id,
+                               const UI_FileDialogOptions& options,
+                               std::string& selectedFilePath);
+
+UI_FileDialogResult renderFileDialog(SceneRenderer& renderer,
+                                     const std::string& id,
+                                     bool& showFileDialog,
+                                     bool openedFileDialogThisFrame,
+                                     const UI_FileDialogOptions& options,
+                                     std::string& selectedFilePath);
 
 }  // namespace Blend2DUI

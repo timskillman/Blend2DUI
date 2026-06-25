@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace Blend2DUI {
 
@@ -28,7 +29,9 @@ class DemoScreen {
   bool renderFrame(SceneRenderer& renderer, double seconds);
   void setPanel(std::unique_ptr<DemoPanel> panel);
 
-  void openFileDialog(UI_FileDialogMode mode);
+  void openFileDialog(UI_FileDialogMode mode,
+                      std::vector<UI_FileTypeFilter> filters = {},
+                      std::string defaultFileName = {});
   const std::string& selectedFilePath() const { return selectedFilePath_; }
 
  private:
@@ -42,14 +45,12 @@ class DemoScreen {
                    double pulse,
                    double width,
                    double height);
-  void renderFileDialog(SceneRenderer& renderer,
-                        double width,
-                        double height,
-                        bool openedFileDialogThisFrame);
 
   std::unique_ptr<DemoPanel> panel_;
   bool showFileDialog_ = false;
   UI_FileDialogMode fileDialogMode_ = UI_FileDialogMode::Open;
+  std::vector<UI_FileTypeFilter> fileDialogFilters_;
+  std::string fileDialogDefaultFileName_;
   std::string selectedFilePath_;
   std::string singleLineText_;
   std::string multiLineText_;

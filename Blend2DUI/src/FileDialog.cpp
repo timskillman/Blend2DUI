@@ -32,6 +32,26 @@ std::string extensionType(const std::filesystem::path& path, bool directory) {
   return ext + " file";
 }
 
+std::filesystem::path defaultDialogStartPath() {
+  namespace fs = std::filesystem;
+  const char* home = std::getenv("HOME");
+#ifdef _WIN32
+  if (!home) home = std::getenv("USERPROFILE");
+#endif
+  fs::path start = home ? fs::path(home) : fs::current_path();
+  const fs::path documents = start / "Documents";
+  if (fs::is_directory(documents)) start = documents;
+  return start;
+}
+
+BLRect defaultDialogRect(const SceneRenderer& renderer) {
+  const double width = static_cast<double>(renderer.width());
+  const double height = static_cast<double>(renderer.height());
+  const double dialogW = std::min(820.0, std::max(560.0, width - 70.0));
+  const double dialogH = std::min(560.0, std::max(430.0, height - 56.0));
+  return BLRect((width - dialogW) * 0.5, (height - dialogH) * 0.5, dialogW, dialogH);
+}
+
 bool patternMatches(const std::filesystem::path& path, const std::string& pattern) {
   if (pattern.empty() || pattern == "*.*" || pattern == "*") return true;
   const std::string name = lower(path.filename().string());
@@ -703,6 +723,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
     if (!fs::is_directory(state.currentPath)) state.currentPath = fs::current_path();
     state.pathText = state.currentPath.string();
     state.filterIndex = 0;
+    state.filename = options.defaultFileName;
   }
 
   if (state.hasPendingPath) {
@@ -1253,6 +1274,32 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
   }
 
   return finishDialog(UI_FileDialogResult::None);
+}
+
+UI_FileDialogResult showDialog(SceneRenderer& renderer,
+                               const std::string& id,
+                               const UI_FileDialogOptions& options,
+                               std::string& selectedFilePath) {
+  UI_FileDialogOptions resolvedOptions = options;
+  if (resolvedOptions.startPath.empty()) {
+    resolvedOptions.startPath = defaultDialogStartPath();
+  }
+  return renderer.UI_FileDialog(id, defaultDialogRect(renderer), resolvedOptions, selectedFilePath);
+}
+
+UI_FileDialogResult renderFileDialog(SceneRenderer& renderer,
+                                     const std::string& id,
+                                     bool& showFileDialog,
+                                     bool openedFileDialogThisFrame,
+                                     const UI_FileDialogOptions& options,
+                                     std::string& selectedFilePath) {
+  if (!showFileDialog || openedFileDialogThisFrame) return UI_FileDialogResult::None;
+
+  const UI_FileDialogResult result = showDialog(renderer, id, options, selectedFilePath);
+  if (result == UI_FileDialogResult::Accepted || result == UI_FileDialogResult::Cancelled) {
+    showFileDialog = false;
+  }
+  return result;
 }
 #endif
 
