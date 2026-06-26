@@ -91,6 +91,33 @@ BLRect fitImageRect(const BLRect& bounds, const BLImage& image) {
                 height);
 }
 
+uint32_t blendColour(uint32_t a, uint32_t b, double t) {
+  t = std::max(0.0, std::min(1.0, t));
+  const auto blendChannel = [t](uint32_t lhs, uint32_t rhs, int shift) {
+    const double av = static_cast<double>((lhs >> shift) & 0xFFu);
+    const double bv = static_cast<double>((rhs >> shift) & 0xFFu);
+    return static_cast<uint32_t>(std::lround(av + (bv - av) * t)) << shift;
+  };
+  return blendChannel(a, b, 24) |
+         blendChannel(a, b, 16) |
+         blendChannel(a, b, 8) |
+         blendChannel(a, b, 0);
+}
+
+UI_ButtonStyle lowPowerStyle(UI_ButtonStyle style) {
+  style.shadowWidth = 0.0;
+  style.innerShadowWidth = 0.0;
+  style.gradientHover = UI_ButtonGradientHoverMode::None;
+  if (!style.gradients.empty()) {
+    const uint32_t primary = blendColour(style.gradients.front(), style.gradients.back(), 0.5);
+    style.fillColour = blendColour(primary, style.fillColour, 0.2);
+    style.hoverColour = blendColour(primary, style.hoverColour, 0.35);
+    style.pressedColour = blendColour(primary, style.pressedColour, 0.45);
+    style.gradients.clear();
+  }
+  return style;
+}
+
 void setFillStyle(BLContext& ctx,
                   const UI_ButtonStyle& style,
                   const BLRect& rect,
@@ -414,7 +441,8 @@ UI_ButtonAction Button::render(BLContext& ctx,
                                std::string& hoveredButtonId,
                                double& hoverStartSeconds,
                                UI_ButtonResources& resources) const {
-  const UI_ButtonStyle& style = style_->style();
+  UI_ButtonStyle renderStyleStorage = resources.lowPowerMode ? lowPowerStyle(style_->style()) : style_->style();
+  const UI_ButtonStyle& style = renderStyleStorage;
   const UI_ButtonContent& content = *content_;
   const bool hovered = contains(rect_, mouseX, mouseY);
 
@@ -506,7 +534,7 @@ UI_ButtonAction Button::render(BLContext& ctx,
     drawText(ctx, contentRect, style, content.text, resources);
   }
 
-  if (hovered && !content.hint.empty() && seconds - hoverStartSeconds >= 2.0) {
+  if (!resources.lowPowerMode && hovered && !content.hint.empty() && seconds - hoverStartSeconds >= 2.0) {
     drawHint(ctx, rect_, style, content.hint, resources);
   }
 

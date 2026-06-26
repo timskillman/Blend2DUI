@@ -40,7 +40,7 @@ class DemoScreen {
                   const UI_RectArea& menuArea,
                   bool& openedFileDialogThisFrame);
   void renderInputs(SceneRenderer& renderer, const UI_RectArea& inputArea);
-  void renderSliders(SceneRenderer& renderer, double width);
+  void renderSliders(SceneRenderer& renderer, const UI_RectArea& inputArea);
   void renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect);
   void renderFpsCounter(SceneRenderer& renderer, double width, double height);
   void updateFpsCounter(double seconds);
@@ -48,7 +48,8 @@ class DemoScreen {
                    double seconds,
                    double pulse,
                    double width,
-                   double height);
+                   double height,
+                   double panelY);
 
   std::unique_ptr<DemoPanel> panel_;
   bool showFileDialog_ = false;
@@ -60,6 +61,7 @@ class DemoScreen {
   std::string multiLineText_;
   double horizontalSliderValue_ = 64.0;
   double redHorizontalSliderValue_ = 28.0;
+  double greenHorizontalSliderValue_ = 72.0;
   double verticalSliderValue_ = 0.35;
   bool tickBoxChecked_ = true;
   bool toggleEnabled_ = false;
@@ -67,6 +69,9 @@ class DemoScreen {
   double previewSplitRatio_ = 0.66;
   double previewDividerGrabOffset_ = 0.0;
   bool draggingPreviewDivider_ = false;
+  double widgetShowcaseScroll_ = 0.0;
+  double widgetShowcaseScrollbarDragOffset_ = 0.0;
+  bool draggingWidgetShowcaseScrollbar_ = false;
   double lastFrameSeconds_ = -1.0;
   double smoothedFrameDelta_ = 1.0 / 60.0;
   double displayedFps_ = 60.0;

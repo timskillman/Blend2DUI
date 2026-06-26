@@ -33,6 +33,9 @@ struct DemoButtonStyles {
   Blend2DUI::UI_ButtonStyleDefinition redSlider{
       "FillColour:#FFFFFF, HoverColour:#FEE2E2, PressedColour:#EF4444, StrokeColour:#F87171, "
       "StrokeWidth:1, TextColour:#0F172A, Corner:8, Font:DejaVuSans, FontSize:14"};
+  Blend2DUI::UI_ButtonStyleDefinition greenSlider{
+      "FillColour:#FFFFFF, HoverColour:#DCFCE7, PressedColour:#22C55E, StrokeColour:#4ADE80, "
+      "StrokeWidth:1, TextColour:#0F172A, Corner:8, Font:DejaVuSans, FontSize:14"};
   Blend2DUI::UI_ButtonStyleDefinition label{
       "HasFill:false, HasStroke:false, TextColour:#0F172A, Font:DejaVuSans, FontSize:14"};
   Blend2DUI::UI_ButtonStyleDefinition labelStrong{
@@ -62,6 +65,8 @@ struct DemoButtonStyles {
       "Heading:'Horizontal slider', Min:0, Max:100, Default:64, Step:1, Integer:true, Thumb:Circle"};
   Blend2DUI::UI_SliderOptions redHorizontalSliderOptions{
       "Heading:'Horizontal slider (red)', Min:0, Max:100, Default:28, Step:1, Integer:true, Thumb:Circle"};
+  Blend2DUI::UI_SliderOptions greenHorizontalSliderOptions{
+      "Heading:'Horizontal slider (green)', Min:0, Max:100, Default:72, Step:1, Integer:true, Thumb:Circle"};
   Blend2DUI::UI_SliderOptions verticalSliderOptions{
       "Orientation:Vertical, Heading:'Vertical', Min:0, Max:1, Default:0.35, Step:0.05, Thumb:Diamond"};
 };
@@ -73,6 +78,28 @@ const std::vector<Blend2DUI::UI_FileTypeFilter> kDemoFileFilters = {
     {"SVG files", "*.svg"},
     {"Text files", "*.txt"},
 };
+
+constexpr double kMenuMarginX = 28.0;
+constexpr double kMenuTop = 28.0;
+constexpr double kMenuHeight = 72.0;
+constexpr double kInputMarginX = 44.0;
+constexpr double kInputTop = 116.0;
+constexpr double kInputMinWidth = 260.0;
+constexpr double kTextSectionHeight = 40.0 + 12.0 + 128.0;
+constexpr double kControlTopGap = 12.0;
+constexpr double kControlsBottomGap = 12.0;
+constexpr double kControlGap = 18.0;
+constexpr double kHorizontalSliderHeight = 50.0;
+constexpr double kSliderRowGap = 8.0;
+constexpr double kSliderBottomClearance = 12.0;
+constexpr double kVerticalSliderWidth = 66.0;
+constexpr double kVerticalSliderGap = 18.0;
+constexpr double kPanelTopGap = 24.0;
+
+double demoInputAreaHeight() {
+  return kTextSectionHeight + kControlTopGap + kSliderRowGap +
+         (kHorizontalSliderHeight * 3.0) + (kSliderRowGap * 2.0) + kSliderBottomClearance + kControlsBottomGap;
+}
 
 std::vector<Blend2DUI::UI_ContextMenuItem> buildDemoContextMenuItems() {
   return {
@@ -121,19 +148,32 @@ class DefaultDemoPanel final : public Blend2DUI::DemoPanel {
               double,
               double pulse) override {
     BLContext& canvas = renderer.context();
+    const double corner = 6.0;
     canvas.set_fill_style(BLRgba32(0xFF111827u));
-    canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, 6));
+    canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
 
-    BLGradient orb(BLRadialGradientValues(rect.x + rect.w * (0.1 + 0.3 * pulse),
-                                          rect.y + rect.h * 0.5,
-                                          rect.x + rect.w * 0.25,
-                                          rect.y + rect.h * 0.35,
-                                          std::min(rect.w, rect.h) * 0.45));
-    orb.add_stop(0.0, BLRgba32(0xFFFFF7ADu));
-    orb.add_stop(0.45, BLRgba32(0xFF38BDF8u));
-    orb.add_stop(1.0, BLRgba32(0x00111827u));
-    canvas.set_fill_style(orb);
-    canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, 6));
+    if (renderer.lowPowerMode()) {
+      const double cx = rect.x + rect.w * 0.34;
+      const double cy = rect.y + rect.h * 0.52;
+      const double radius = std::min(rect.w, rect.h) * 0.24;
+      canvas.set_fill_style(BLRgba32(0xFF16324Bu));
+      canvas.fill_circle(BLCircle(cx, cy, radius * 1.6));
+      canvas.set_fill_style(BLRgba32(0xFF38BDF8u));
+      canvas.fill_circle(BLCircle(cx, cy, radius));
+      canvas.set_fill_style(BLRgba32(0xCCFFF7ADu));
+      canvas.fill_circle(BLCircle(cx - radius * 0.28, cy - radius * 0.22, radius * 0.34));
+    } else {
+      BLGradient orb(BLRadialGradientValues(rect.x + rect.w * (0.1 + 0.3 * pulse),
+                                            rect.y + rect.h * 0.5,
+                                            rect.x + rect.w * 0.25,
+                                            rect.y + rect.h * 0.35,
+                                            std::min(rect.w, rect.h) * 0.45));
+      orb.add_stop(0.0, BLRgba32(0xFFFFF7ADu));
+      orb.add_stop(0.45, BLRgba32(0xFF38BDF8u));
+      orb.add_stop(1.0, BLRgba32(0x00111827u));
+      canvas.set_fill_style(orb);
+      canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
+    }
 
     if (!screen.selectedFilePath().empty()) {
       canvas.set_fill_style(BLRgba32(0xF0FFFFFFu));
@@ -187,16 +227,22 @@ bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   const double width = static_cast<double>(renderer.width());
   const double height = static_cast<double>(renderer.height());
   const double pulse = 0.5 + 0.5 * std::sin(seconds * 2.2);
+  const double inputAreaHeight = demoInputAreaHeight();
+  const double panelY = kInputTop + inputAreaHeight + kPanelTopGap;
 
   UI_RectArea menuArea;
-  menuArea.SetRect(BLRect(28, 28, std::max(80.0, width - 56.0), 72), kDemoStyles.menuRect);
+  menuArea.SetRect(BLRect(kMenuMarginX, kMenuTop, std::max(80.0, width - (kMenuMarginX * 2.0)), kMenuHeight), kDemoStyles.menuRect);
   UI_RectArea inputArea;
-  inputArea.SetRect(BLRect(44, 116, std::max(260.0, width - 88.0), 362.0), kDemoStyles.inputRect);
+  inputArea.SetRect(BLRect(kInputMarginX,
+                           kInputTop,
+                           std::max(kInputMinWidth, width - (kInputMarginX * 2.0)),
+                           inputAreaHeight),
+                    kDemoStyles.inputRect);
 
   renderMenu(renderer, menuArea, openedFileDialogThisFrame);
   renderInputs(renderer, inputArea);
-  renderSliders(renderer, width);
-  renderPanel(renderer, seconds, pulse, width, height);
+  renderPanel(renderer, seconds, pulse, width, height, panelY);
+  renderSliders(renderer, inputArea);
 
   UI_FileDialogOptions dialogOptions;
   dialogOptions.mode = fileDialogMode_;
@@ -295,38 +341,138 @@ void DemoScreen::renderInputs(SceneRenderer& renderer, const UI_RectArea& inputA
   renderer.UI_TextInput("multi-line-demo", "100%x128", kDemoStyles.multiLineOptions, multiLineText_, kDemoStyles.input);
 }
 
-void DemoScreen::renderSliders(SceneRenderer& renderer, double width) {
+void DemoScreen::renderSliders(SceneRenderer& renderer, const UI_RectArea& inputArea) {
   DemoProfileScope sliderProfile(renderer, "demo.sliders");
-  renderer.UI_CursorGap(2);
+  const BLRect inputDrawable = inputArea.GetDrawableArea();
+  const double controlsTop = inputDrawable.y + kTextSectionHeight + kControlTopGap;
+  const double controlsHeight = std::max(112.0, inputDrawable.y + inputDrawable.h - controlsTop - kControlsBottomGap);
+  const double maxWidgetWidth = std::max(180.0, inputDrawable.w - 244.0);
+  const double widgetWidth = std::clamp(inputDrawable.w * 0.32, 180.0, maxWidgetWidth);
+  const BLRect widgetRect(inputDrawable.x, controlsTop, widgetWidth, controlsHeight);
+  const BLRect sliderRect(widgetRect.x + widgetRect.w + kControlGap,
+                          controlsTop,
+                          std::max(80.0, inputDrawable.x + inputDrawable.w - widgetRect.x - widgetRect.w - kControlGap),
+                          controlsHeight);
+  const BLRect horizontalSliderRect(sliderRect.x,
+                                    sliderRect.y,
+                                    std::max(80.0, sliderRect.w - kVerticalSliderWidth - kVerticalSliderGap),
+                                    sliderRect.h);
+  const BLRect verticalSliderRect(horizontalSliderRect.x + horizontalSliderRect.w + kVerticalSliderGap,
+                                  sliderRect.y,
+                                  kVerticalSliderWidth,
+                                  sliderRect.h);
+
+  renderWidgetShowcase(renderer, widgetRect);
+
+  UI_RectArea sliderArea;
+  sliderArea.SetRect(horizontalSliderRect, kDemoStyles.inputRect);
+  renderer.UI_CursorRect(sliderArea);
+  renderer.UI_CursorTop(static_cast<int>(kSliderRowGap));
   renderer.UI_Slider("horizontal-slider-demo",
-                     "90%x58",
+                     "100%x50",
                      kDemoStyles.horizontalSliderOptions,
                      horizontalSliderValue_,
                      kDemoStyles.slider);
 
-  renderer.UI_CursorSave("after-horizontal-slider");
-  renderer.UI_CursorGap(10);
+  renderer.UI_CursorGap(static_cast<int>(kSliderRowGap));
   renderer.UI_Slider("horizontal-slider-demo-red",
-                     "90%x58",
+                     "100%x50",
                      kDemoStyles.redHorizontalSliderOptions,
                      redHorizontalSliderValue_,
                      kDemoStyles.redSlider);
-
-  renderer.UI_CursorUse("after-horizontal-slider");
-  renderer.UI_CursorOffset(std::max(0.0, width - 154.0), -70.0);
+  renderer.UI_CursorGap(static_cast<int>(kSliderRowGap));
+  renderer.UI_Slider("horizontal-slider-demo-green",
+                     "100%x50",
+                     kDemoStyles.greenHorizontalSliderOptions,
+                     greenHorizontalSliderValue_,
+                     kDemoStyles.greenSlider);
   renderer.UI_Slider("vertical-slider-demo",
-                     "66x168",
+                     verticalSliderRect,
                      kDemoStyles.verticalSliderOptions,
                      verticalSliderValue_,
                      kDemoStyles.slider);
 }
 
 void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect) {
+  auto containsPoint = [](const BLRect& target, double x, double y) {
+    return x >= target.x && y >= target.y && x <= target.x + target.w && y <= target.y + target.h;
+  };
+
   const std::vector<Blend2DUI::UI_ContextMenuItem> menuItems = buildDemoContextMenuItems();
   UI_RectArea showcaseArea;
   showcaseArea.SetRect(rect, kDemoStyles.menuRect);
   renderer.UI_CursorRect(showcaseArea);
-  renderer.UI_CursorTop(4);
+
+  const BLRect showcaseDrawable = showcaseArea.GetDrawableArea();
+  constexpr double kScrollbarGap = 10.0;
+  constexpr double kScrollbarWidth = 10.0;
+  constexpr double kShowcaseItemGap = 4.0;
+  const double imageBlockHeight = renderer.lowPowerMode() ? 36.0 : 54.0;
+  const double contentHeight = 20.0 + 18.0 + 26.0 + 26.0 + imageBlockHeight + 32.0 + kShowcaseItemGap * 5.0 + 8.0;
+  const double maxScroll = std::max(0.0, contentHeight - showcaseDrawable.h);
+  widgetShowcaseScroll_ = std::clamp(widgetShowcaseScroll_, 0.0, maxScroll);
+
+  if (!containsPoint(rect, renderer.mouseX(), renderer.mouseY()) && renderer.mouseReleased()) {
+    draggingWidgetShowcaseScrollbar_ = false;
+  }
+
+  if (containsPoint(rect, renderer.mouseX(), renderer.mouseY()) && renderer.wheelY() != 0.0) {
+    widgetShowcaseScroll_ = std::clamp(widgetShowcaseScroll_ - renderer.wheelY() * 28.0, 0.0, maxScroll);
+  }
+
+  const bool hasScrollbar = maxScroll > 0.5;
+  if (!hasScrollbar) {
+    draggingWidgetShowcaseScrollbar_ = false;
+    widgetShowcaseScroll_ = 0.0;
+  }
+  const BLRect contentRect(showcaseDrawable.x,
+                           showcaseDrawable.y,
+                           std::max(40.0, showcaseDrawable.w - (hasScrollbar ? (kScrollbarGap + kScrollbarWidth) : 0.0)),
+                           showcaseDrawable.h);
+  const BLRect scrollbarTrackRect(contentRect.x + contentRect.w + kScrollbarGap,
+                                  showcaseDrawable.y,
+                                  kScrollbarWidth,
+                                  showcaseDrawable.h);
+  const double scrollbarThumbHeight = hasScrollbar
+                                          ? std::max(26.0, scrollbarTrackRect.h * (contentRect.h / std::max(contentHeight, 1.0)))
+                                          : scrollbarTrackRect.h;
+  const double scrollbarThumbY = hasScrollbar && maxScroll > 0.0
+                                     ? scrollbarTrackRect.y + (scrollbarTrackRect.h - scrollbarThumbHeight) * (widgetShowcaseScroll_ / maxScroll)
+                                     : scrollbarTrackRect.y;
+  const BLRect scrollbarThumbRect(scrollbarTrackRect.x,
+                                  scrollbarThumbY,
+                                  scrollbarTrackRect.w,
+                                  scrollbarThumbHeight);
+
+  auto scrollFromThumbY = [&](double thumbY) {
+    if (!hasScrollbar || maxScroll <= 0.0 || scrollbarTrackRect.h <= scrollbarThumbHeight) return 0.0;
+    const double clampedTop = std::max(scrollbarTrackRect.y,
+                                       std::min(scrollbarTrackRect.y + scrollbarTrackRect.h - scrollbarThumbHeight, thumbY));
+    const double t = (clampedTop - scrollbarTrackRect.y) / (scrollbarTrackRect.h - scrollbarThumbHeight);
+    return maxScroll * t;
+  };
+
+  if (hasScrollbar && renderer.mousePressed() && containsPoint(scrollbarTrackRect, renderer.mouseX(), renderer.mouseY())) {
+    draggingWidgetShowcaseScrollbar_ = true;
+    if (containsPoint(scrollbarThumbRect, renderer.mouseX(), renderer.mouseY())) {
+      widgetShowcaseScrollbarDragOffset_ = renderer.mouseY() - scrollbarThumbY;
+    } else {
+      widgetShowcaseScrollbarDragOffset_ = scrollbarThumbHeight * 0.5;
+      widgetShowcaseScroll_ = scrollFromThumbY(renderer.mouseY() - widgetShowcaseScrollbarDragOffset_);
+    }
+  }
+  if (draggingWidgetShowcaseScrollbar_ && renderer.mouseDown()) {
+    widgetShowcaseScroll_ = scrollFromThumbY(renderer.mouseY() - widgetShowcaseScrollbarDragOffset_);
+  }
+  if (draggingWidgetShowcaseScrollbar_ && renderer.mouseReleased()) {
+    draggingWidgetShowcaseScrollbar_ = false;
+  }
+
+  UI_RectArea scrollClipArea;
+  scrollClipArea.SetRect(contentRect, kDemoStyles.inputRect);
+  renderer.UI_CursorRect(scrollClipArea);
+  renderer.UI_CursorTop(static_cast<int>(kShowcaseItemGap));
+  renderer.UI_CursorOffset(0.0, -widgetShowcaseScroll_);
 
   renderer.UI_Label("widget-showcase.title",
                     "100%x20",
@@ -349,13 +495,20 @@ void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rec
                      toggleEnabled_,
                      kDemoStyles.toggle,
                      UI_ButtonContent("iOS-style toggle"));
-  renderer.UI_Image("widget-showcase.image",
-                    "100%x54",
-                    kDemoStyles.imageFrame,
-                    UI_ButtonContent("", "", "assets/Heaven.jpg"));
+  if (renderer.lowPowerMode()) {
+    renderer.UI_Label("widget-showcase.image-disabled",
+                      "100%x36",
+                      kDemoStyles.label,
+                      UI_ButtonContent("Image preview disabled in low-power mode"));
+  } else {
+    renderer.UI_Image("widget-showcase.image",
+                      "100%x54",
+                      kDemoStyles.imageFrame,
+                      UI_ButtonContent("", "", "assets/Heaven.jpg"));
+  }
 
   UI_ContextMenuOptions menuOptions;
-  menuOptions.menuWidth = std::max(172.0, showcaseArea.GetDrawableArea().w);
+  menuOptions.menuWidth = std::max(156.0, contentRect.w);
   menuOptions.itemHeight = 32.0;
   const int selection = renderer.UI_ContextMenu("widget-showcase.menu",
                                                 "100%x32",
@@ -368,36 +521,43 @@ void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rec
   if (selection >= 0) {
     contextMenuSelection_ = selection;
   }
+
+  if (hasScrollbar) {
+    BLContext& canvas = renderer.context();
+    canvas.set_fill_style(BLRgba32(0xFFE2E8F0u));
+    canvas.fill_round_rect(BLRoundRect(scrollbarTrackRect.x,
+                                       scrollbarTrackRect.y,
+                                       scrollbarTrackRect.w,
+                                       scrollbarTrackRect.h,
+                                       scrollbarTrackRect.w * 0.5));
+    canvas.set_fill_style(BLRgba32(draggingWidgetShowcaseScrollbar_ ? 0xFF38BDF8u : 0xFF94A3B8u));
+    canvas.fill_round_rect(BLRoundRect(scrollbarThumbRect.x,
+                                       scrollbarThumbRect.y,
+                                       scrollbarThumbRect.w,
+                                       scrollbarThumbRect.h,
+                                       scrollbarThumbRect.w * 0.5));
+  }
 }
 
 void DemoScreen::renderPanel(SceneRenderer& renderer,
                              double seconds,
                              double pulse,
                              double width,
-                             double height) {
+                             double height,
+                             double panelY) {
   DemoProfileScope sectionProfile(renderer, "demo.panel");
   auto containsPoint = [](const BLRect& rect, double x, double y) {
     return x >= rect.x && y >= rect.y && x <= rect.x + rect.w && y <= rect.y + rect.h;
   };
 
   BLContext& canvas = renderer.context();
-  const double panelY = 498.0;
   const double panelH = std::max(120.0, height - panelY - 32.0);
   const BLRect panelRect(28, panelY, std::max(80.0, width - 56.0), panelH);
   const BLRect contentRect(48.0,
                            panelY + 24.0,
                            std::max(80.0, width - 96.0),
                            std::max(80.0, panelH - 48.0));
-  const double showcaseGap = 20.0;
-  const double showcaseWidth = std::min(260.0, std::max(220.0, contentRect.w * 0.34));
-  const BLRect previewAreaRect(contentRect.x,
-                               contentRect.y,
-                               std::max(80.0, contentRect.w - showcaseWidth - showcaseGap),
-                               contentRect.h);
-  const BLRect showcaseRect(previewAreaRect.x + previewAreaRect.w + showcaseGap,
-                              contentRect.y,
-                              showcaseWidth,
-                              std::min(contentRect.h, 232.0));
+  const BLRect previewAreaRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
 
   const double canvas3DGap = previewAreaRect.w >= 260.0 ? 20.0 : 12.0;
   const double minOrbWidth = 60.0;
@@ -479,8 +639,6 @@ void DemoScreen::renderPanel(SceneRenderer& renderer,
   canvas.set_stroke_style(BLRgba32(0xFF334155u));
   canvas.stroke_round_rect(BLRoundRect(canvas3DPanelRect.x, canvas3DPanelRect.y, canvas3DPanelRect.w, canvas3DPanelRect.h, 12));
   canvas3D_.render(renderer, canvas3DViewport, seconds);
-
-  renderWidgetShowcase(renderer, showcaseRect);
 }
 
 }  // namespace Blend2DUI

@@ -110,6 +110,20 @@ uint32_t blendColour(uint32_t a, uint32_t b, double t) {
          blendChannel(a, b, 0);
 }
 
+UI_ButtonStyle lowPowerStyle(UI_ButtonStyle style) {
+  style.shadowWidth = 0.0;
+  style.innerShadowWidth = 0.0;
+  style.gradientHover = UI_ButtonGradientHoverMode::None;
+  if (!style.gradients.empty()) {
+    const uint32_t primary = blendColour(style.gradients.front(), style.gradients.back(), 0.5);
+    style.fillColour = blendColour(primary, style.fillColour, 0.2);
+    style.hoverColour = blendColour(primary, style.hoverColour, 0.35);
+    style.pressedColour = blendColour(primary, style.pressedColour, 0.45);
+    style.gradients.clear();
+  }
+  return style;
+}
+
 void setFillStyle(BLContext& ctx,
                   const UI_ButtonStyle& style,
                   const BLRect& rect,
@@ -237,10 +251,12 @@ void drawButtonLike(BLContext& ctx,
                     bool active,
                     double hoverElapsed,
                     bool centeredText) {
-  const double corner = clampCorner(style.corner, rect);
-  if (style.shadowWidth > 0.0 && (style.shadowColour >> 24) != 0) {
-    const double spread = style.shadowWidth;
-    ctx.set_fill_style(BLRgba32(style.shadowColour));
+  UI_ButtonStyle renderStyleStorage = resources.lowPowerMode ? lowPowerStyle(style) : style;
+  const UI_ButtonStyle& renderStyle = renderStyleStorage;
+  const double corner = clampCorner(renderStyle.corner, rect);
+  if (renderStyle.shadowWidth > 0.0 && (renderStyle.shadowColour >> 24) != 0) {
+    const double spread = renderStyle.shadowWidth;
+    ctx.set_fill_style(BLRgba32(renderStyle.shadowColour));
     ctx.fill_round_rect(BLRoundRect(rect.x - spread * 0.4,
                                     rect.y + spread * 0.35,
                                     rect.w + spread * 0.8,
@@ -248,23 +264,23 @@ void drawButtonLike(BLContext& ctx,
                                     clampCorner(corner + spread * 0.35, rect)));
   }
 
-  uint32_t fill = style.fillColour;
-  if (active) fill = style.pressedColour;
-  else if (hovered) fill = style.hoverColour;
+  uint32_t fill = renderStyle.fillColour;
+  if (active) fill = renderStyle.pressedColour;
+  else if (hovered) fill = renderStyle.hoverColour;
 
-  if (style.hasFill) {
-    setFillStyle(ctx, style, rect, fill, hovered, hoverElapsed);
+  if (renderStyle.hasFill) {
+    setFillStyle(ctx, renderStyle, rect, fill, hovered, hoverElapsed);
     ctx.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
   }
 
-  drawInnerShadow(ctx, rect, style, corner);
+  drawInnerShadow(ctx, rect, renderStyle, corner);
 
-  if (style.hasStroke && style.strokeWidth > 0.0) {
-    const double strokeInset = style.strokeWidth * 0.5;
+  if (renderStyle.hasStroke && renderStyle.strokeWidth > 0.0) {
+    const double strokeInset = renderStyle.strokeWidth * 0.5;
     const BLRect strokeRect = insetRect(rect, strokeInset);
     const double strokeCorner = clampCorner(std::max(0.0, corner - strokeInset), strokeRect);
-    ctx.set_stroke_style(BLRgba32(style.strokeColour));
-    ctx.set_stroke_width(style.strokeWidth);
+    ctx.set_stroke_style(BLRgba32(renderStyle.strokeColour));
+    ctx.set_stroke_width(renderStyle.strokeWidth);
     ctx.stroke_round_rect(BLRoundRect(strokeRect.x, strokeRect.y, strokeRect.w, strokeRect.h, strokeCorner));
   }
 
@@ -286,7 +302,7 @@ void drawButtonLike(BLContext& ctx,
                             contentRect.w,
                             std::max(0.0, contentRect.y + contentRect.h - textTop));
       ctx.blit_image(imageRect, *image);
-      drawText(ctx, textRect, style, content.text, resources, true);
+      drawText(ctx, textRect, renderStyle, content.text, resources, true);
     } else {
       const double imageSlotWidth = std::min(imageContentRect.h, std::max(16.0, imageContentRect.w * 0.32));
       const BLRect imageArea(imageContentRect.x, imageContentRect.y, imageSlotWidth, imageContentRect.h);
@@ -297,13 +313,13 @@ void drawButtonLike(BLContext& ctx,
                             std::max(0.0, contentRect.x + contentRect.w - textX),
                             contentRect.h);
       ctx.blit_image(imageRect, *image);
-      drawText(ctx, textRect, style, content.text, resources, false);
+      drawText(ctx, textRect, renderStyle, content.text, resources, false);
     }
   } else if (image) {
     const BLRect imageRect = fitImageRect(imageContentRect, *image);
     ctx.blit_image(imageRect, *image);
   } else {
-    drawText(ctx, contentRect, style, content.text, resources, centeredText);
+    drawText(ctx, contentRect, renderStyle, content.text, resources, centeredText);
   }
 }
 
