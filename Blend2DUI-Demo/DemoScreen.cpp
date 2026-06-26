@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -36,6 +37,8 @@ struct DemoButtonStyles {
       "HasFill:false, HasStroke:false, TextColour:#0F172A, Font:DejaVuSans, FontSize:14"};
   Blend2DUI::UI_ButtonStyleDefinition labelStrong{
       "HasFill:false, HasStroke:false, TextColour:#0F172A, Font:DejaVuSans, FontSize:16, FontStyle:Bold"};
+  Blend2DUI::UI_ButtonStyleDefinition labelInverse{
+      "HasFill:false, HasStroke:false, TextColour:#F8FAFC, Font:DejaVuSans, FontSize:13, FontStyle:Bold"};
   Blend2DUI::UI_ButtonStyleDefinition toggle{
       "FillColour:#E5E7EB, HoverColour:#D1FAE5, PressedColour:#22C55E, StrokeColour:#86EFAC, "
       "StrokeWidth:1, TextColour:#0F172A, Corner:16, Font:DejaVuSans, FontSize:14"};
@@ -178,6 +181,7 @@ void DemoScreen::openFileDialog(UI_FileDialogMode mode,
 bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   DemoProfileScope renderProfile(renderer, "demo.renderFrame");
   if (!renderer.beginFrame(seconds)) return false;
+  updateFpsCounter(seconds);
 
   bool openedFileDialogThisFrame = false;
   const double width = static_cast<double>(renderer.width());
@@ -208,8 +212,48 @@ bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   if (fileDialogResult == UI_FileDialogResult::Accepted) {
     std::cout << (fileDialogMode_ == UI_FileDialogMode::Save ? "Save path: " : "Load path: ") << selectedFilePath_ << "\n";
   }
+  renderFpsCounter(renderer, width, height);
 
   return renderer.endFrame();
+}
+
+void DemoScreen::updateFpsCounter(double seconds) {
+  if (lastFrameSeconds_ >= 0.0) {
+    const double delta = std::max(1.0e-4, seconds - lastFrameSeconds_);
+    const double smoothing = delta > 0.25 ? 0.35 : 0.12;
+    smoothedFrameDelta_ += (delta - smoothedFrameDelta_) * smoothing;
+    displayedFps_ = 1.0 / std::max(1.0e-4, smoothedFrameDelta_);
+  }
+  lastFrameSeconds_ = seconds;
+}
+
+void DemoScreen::renderFpsCounter(SceneRenderer& renderer, double width, double height) {
+  BLContext& canvas = renderer.context();
+  constexpr double kBadgeW = 96.0;
+  constexpr double kBadgeH = 32.0;
+  constexpr double kMargin = 18.0;
+
+  const BLRect badgeRect(std::max(8.0, width - kBadgeW - kMargin),
+                         std::max(8.0, height - kBadgeH - kMargin),
+                         kBadgeW,
+                         kBadgeH);
+  const BLRect labelRect(badgeRect.x + 10.0,
+                         badgeRect.y,
+                         std::max(0.0, badgeRect.w - 20.0),
+                         badgeRect.h);
+
+  canvas.set_fill_style(BLRgba32(0xCC0F172Au));
+  canvas.fill_round_rect(BLRoundRect(badgeRect.x, badgeRect.y, badgeRect.w, badgeRect.h, 10.0));
+  canvas.set_stroke_style(BLRgba32(0x66475569u));
+  canvas.set_stroke_width(1.0);
+  canvas.stroke_round_rect(BLRoundRect(badgeRect.x + 0.5, badgeRect.y + 0.5, badgeRect.w - 1.0, badgeRect.h - 1.0, 9.5));
+
+  char fpsText[32];
+  std::snprintf(fpsText, sizeof(fpsText), "FPS %.1f", displayedFps_);
+  renderer.UI_Label("demo.fps",
+                    labelRect,
+                    kDemoStyles.labelInverse,
+                    UI_ButtonContent(fpsText));
 }
 
 void DemoScreen::renderMenu(SceneRenderer& renderer,

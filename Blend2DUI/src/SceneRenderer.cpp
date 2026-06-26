@@ -23,6 +23,7 @@ using Clock = std::chrono::steady_clock;
 
 using ActiveTextureProc = decltype(&glActiveTexture);
 using AttachShaderProc = decltype(&glAttachShader);
+using BindAttribLocationProc = decltype(&glBindAttribLocation);
 using BindBufferProc = decltype(&glBindBuffer);
 using BindTextureProc = decltype(&glBindTexture);
 using BufferDataProc = decltype(&glBufferData);
@@ -68,6 +69,7 @@ bool loadProc(Proc& proc, const char* name) {
 struct PresentationGLFunctions {
   ActiveTextureProc activeTexture = nullptr;
   AttachShaderProc attachShader = nullptr;
+  BindAttribLocationProc bindAttribLocation = nullptr;
   BindBufferProc bindBuffer = nullptr;
   BindTextureProc bindTexture = nullptr;
   BufferDataProc bufferData = nullptr;
@@ -103,6 +105,7 @@ struct PresentationGLFunctions {
   bool load() {
     return loadProc(activeTexture, "glActiveTexture") &&
            loadProc(attachShader, "glAttachShader") &&
+           loadProc(bindAttribLocation, "glBindAttribLocation") &&
            loadProc(bindBuffer, "glBindBuffer") &&
            loadProc(bindTexture, "glBindTexture") &&
            loadProc(bufferData, "glBufferData") &&
@@ -177,7 +180,16 @@ GLuint compileShader(PresentationGLFunctions& gl, GLenum type, std::string_view 
   return 0;
 }
 
-GLuint createProgram(PresentationGLFunctions& gl, std::string_view vertexSource, std::string_view fragmentSource) {
+struct AttributeBinding {
+  GLuint location = 0;
+  const char* name = nullptr;
+};
+
+GLuint createProgram(PresentationGLFunctions& gl,
+                     std::string_view vertexSource,
+                     std::string_view fragmentSource,
+                     const AttributeBinding* bindings = nullptr,
+                     size_t bindingCount = 0) {
   const GLuint vertexShader = compileShader(gl, GL_VERTEX_SHADER, vertexSource);
   if (!vertexShader) return 0;
 
@@ -196,6 +208,11 @@ GLuint createProgram(PresentationGLFunctions& gl, std::string_view vertexSource,
 
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
+  for (size_t i = 0; i < bindingCount; ++i) {
+    if (bindings[i].name && bindings[i].name[0] != '\0') {
+      gl.bindAttribLocation(program, bindings[i].location, bindings[i].name);
+    }
+  }
   gl.linkProgram(program);
 
   GLint linkStatus = 0;
@@ -224,7 +241,12 @@ constexpr std::array<QuadVertex, 4> kPresentationQuad = {{
     {{1.0f, -1.0f}, {1.0f, 1.0f}},
 }};
 
-constexpr std::string_view kPresentationVertexShader = R"(#version 300 es
+constexpr AttributeBinding kPresentationBindings[] = {
+    {0, "aPosition"},
+    {1, "aUv"},
+};
+
+constexpr std::string_view kPresentationVertexShaderEs3 = R"(#version 300 es
 precision mediump float;
 
 layout(location = 0) in vec2 aPosition;
@@ -238,7 +260,7 @@ void main() {
 }
 )";
 
-constexpr std::string_view kPresentationFragmentShader = R"(#version 300 es
+constexpr std::string_view kPresentationFragmentShaderEs3 = R"(#version 300 es
 precision mediump float;
 
 uniform sampler2D uTexture;
@@ -252,6 +274,55 @@ void main() {
   fragColour = sampled.bgra;
 }
 )";
+
+constexpr std::string_view kPresentationVertexShaderEs2 = R"(precision mediump float;
+
+attribute vec2 aPosition;
+attribute vec2 aUv;
+
+varying vec2 vUv;
+
+void main() {
+  vUv = aUv;
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+)";
+
+constexpr std::string_view kPresentationFragmentShaderEs2 = R"(precision mediump float;
+
+uniform sampler2D uTexture;
+
+varying vec2 vUv;
+
+void main() {
+  vec4 sampled = texture2D(uTexture, vUv);
+  gl_FragColor = sampled.bgra;
+}
+)";
+
+struct GLSetupCandidate {
+  int majorVersion = 0;
+  int minorVersion = 0;
+  int depthBits = 0;
+  int stencilBits = 0;
+};
+
+struct WindowSetupCandidate {
+  SDL_WindowFlags flags = SDL_WINDOW_OPENGL;
+  const char* label = "";
+};
+
+constexpr std::array<GLSetupCandidate, 4> kGLSetupCandidates = {{
+    {3, 0, 24, 8},
+    {3, 0, 16, 0},
+    {2, 0, 24, 8},
+    {2, 0, 16, 0},
+}};
+
+constexpr std::array<WindowSetupCandidate, 2> kWindowSetupCandidates = {{
+    {static_cast<SDL_WindowFlags>(SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL), "resizable"},
+    {SDL_WINDOW_OPENGL, "fixed-size"},
+}};
 
 }  // namespace
 
@@ -278,22 +349,70 @@ bool SceneRenderer::initialize(const std::string& title, int width, int height) 
     return false;
   }
 
-  SDL_GL_ResetAttributes();
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+  glReady_ = false;
+  glMajorVersion_ = 0;
+  glMinorVersion_ = 0;
 
-  window_ = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
-  if (!window_) {
-    std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
-    shutdown();
-    return false;
+  std::string lastGlError;
+  for (const WindowSetupCandidate& windowCandidate : kWindowSetupCandidates) {
+    for (const GLSetupCandidate& candidate : kGLSetupCandidates) {
+      SDL_GL_ResetAttributes();
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, candidate.majorVersion);
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, candidate.minorVersion);
+      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+      SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, candidate.depthBits);
+      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, candidate.stencilBits);
+
+      window_ = SDL_CreateWindow(title.c_str(), width, height, windowCandidate.flags);
+      if (!window_) {
+        lastGlError = SDL_GetError();
+        std::cerr << "SDL_CreateWindow failed for " << windowCandidate.label
+                  << " OpenGL ES " << candidate.majorVersion << "." << candidate.minorVersion
+                  << " depth=" << candidate.depthBits
+                  << " stencil=" << candidate.stencilBits
+                  << ": " << lastGlError << "\n";
+        continue;
+      }
+
+      if (initializeOpenGL()) {
+        glMajorVersion_ = candidate.majorVersion;
+        glMinorVersion_ = candidate.minorVersion;
+
+        int actualMajorVersion = 0;
+        int actualMinorVersion = 0;
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &actualMajorVersion);
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &actualMinorVersion);
+        if (actualMajorVersion > 0) glMajorVersion_ = actualMajorVersion;
+        if (actualMinorVersion >= 0) glMinorVersion_ = actualMinorVersion;
+
+        int actualDepthBits = 0;
+        int actualStencilBits = 0;
+        SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &actualDepthBits);
+        SDL_GL_GetAttribute(SDL_GL_STENCIL_SIZE, &actualStencilBits);
+        std::cerr << "Using " << windowCandidate.label
+                  << " OpenGL ES " << glMajorVersion_ << "." << glMinorVersion_
+                  << " depth=" << actualDepthBits
+                  << " stencil=" << actualStencilBits << "\n";
+        break;
+      }
+
+      lastGlError = SDL_GetError();
+      if (window_) {
+        SDL_DestroyWindow(window_);
+        window_ = nullptr;
+      }
+    }
+
+    if (window_ && glContext_) {
+      break;
+    }
   }
 
-  if (!initializeOpenGL()) {
+  if (!window_ || !glContext_) {
+    if (!lastGlError.empty()) {
+      std::cerr << "Unable to create a compatible OpenGL ES window/context: " << lastGlError << "\n";
+    }
     shutdown();
     return false;
   }
@@ -308,6 +427,7 @@ bool SceneRenderer::initialize(const std::string& title, int width, int height) 
 }
 
 bool SceneRenderer::initializeOpenGL() {
+  glReady_ = false;
   glContext_ = SDL_GL_CreateContext(window_);
   if (!glContext_) {
     std::cerr << "SDL_GL_CreateContext failed: " << SDL_GetError() << "\n";
@@ -315,6 +435,8 @@ bool SceneRenderer::initializeOpenGL() {
   }
   if (!SDL_GL_MakeCurrent(window_, glContext_)) {
     std::cerr << "SDL_GL_MakeCurrent failed: " << SDL_GetError() << "\n";
+    SDL_GL_DestroyContext(glContext_);
+    glContext_ = nullptr;
     return false;
   }
   if (!SDL_GL_SetSwapInterval(1)) {
@@ -347,6 +469,8 @@ void SceneRenderer::shutdown() {
   width_ = 0;
   height_ = 0;
   glReady_ = false;
+  glMajorVersion_ = 0;
+  glMinorVersion_ = 0;
   image_.reset();
   uploadBuffer_.clear();
   canvas3DRequests_.clear();
@@ -447,9 +571,16 @@ bool SceneRenderer::ensurePresentationResources() {
   }
 
   if (glPresentationProgram_ == 0) {
+    const bool useEs3Shaders = glMajorVersion_ >= 3;
+    const std::string_view vertexShaderSource = useEs3Shaders ? kPresentationVertexShaderEs3 : kPresentationVertexShaderEs2;
+    const std::string_view fragmentShaderSource = useEs3Shaders ? kPresentationFragmentShaderEs3 : kPresentationFragmentShaderEs2;
+    const AttributeBinding* bindings = useEs3Shaders ? nullptr : kPresentationBindings;
+    const size_t bindingCount = useEs3Shaders ? 0 : std::size(kPresentationBindings);
     glPresentationProgram_ = createProgram(gPresentationGL,
-                                           kPresentationVertexShader,
-                                           kPresentationFragmentShader);
+                                           vertexShaderSource,
+                                           fragmentShaderSource,
+                                           bindings,
+                                           bindingCount);
     if (glPresentationProgram_ == 0) return false;
     glPresentationTextureUniform_ = gPresentationGL.getUniformLocation(glPresentationProgram_, "uTexture");
   }

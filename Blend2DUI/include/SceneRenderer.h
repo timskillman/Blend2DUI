@@ -239,6 +239,8 @@ class SceneRenderer {
   int width_ = 0;
   int height_ = 0;
   bool glReady_ = false;
+  int glMajorVersion_ = 0;
+  int glMinorVersion_ = 0;
   unsigned int glBackBufferTexture_ = 0;
   unsigned int glPresentationProgram_ = 0;
   unsigned int glPresentationVbo_ = 0;

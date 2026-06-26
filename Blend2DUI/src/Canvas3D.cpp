@@ -15,6 +15,7 @@ namespace Blend2DUI {
 namespace {
 
 using AttachShaderProc = decltype(&glAttachShader);
+using BindAttribLocationProc = decltype(&glBindAttribLocation);
 using BindBufferProc = decltype(&glBindBuffer);
 using BindTextureProc = decltype(&glBindTexture);
 using BufferDataProc = decltype(&glBufferData);
@@ -57,6 +58,7 @@ bool loadProc(Proc& proc, const char* name) {
 
 struct GLFunctions {
   AttachShaderProc attachShader = nullptr;
+  BindAttribLocationProc bindAttribLocation = nullptr;
   BindBufferProc bindBuffer = nullptr;
   BindTextureProc bindTexture = nullptr;
   BufferDataProc bufferData = nullptr;
@@ -89,6 +91,7 @@ struct GLFunctions {
 
   bool load() {
     return loadProc(attachShader, "glAttachShader") &&
+           loadProc(bindAttribLocation, "glBindAttribLocation") &&
            loadProc(bindBuffer, "glBindBuffer") &&
            loadProc(bindTexture, "glBindTexture") &&
            loadProc(bufferData, "glBufferData") &&
@@ -210,7 +213,16 @@ GLuint compileShader(GLFunctions& gl, GLenum type, std::string_view source) {
   return 0;
 }
 
-GLuint createProgram(GLFunctions& gl, std::string_view vertexSource, std::string_view fragmentSource) {
+struct AttributeBinding {
+  GLuint location = 0;
+  const char* name = nullptr;
+};
+
+GLuint createProgram(GLFunctions& gl,
+                     std::string_view vertexSource,
+                     std::string_view fragmentSource,
+                     const AttributeBinding* bindings = nullptr,
+                     size_t bindingCount = 0) {
   const GLuint vertexShader = compileShader(gl, GL_VERTEX_SHADER, vertexSource);
   if (!vertexShader) return 0;
 
@@ -229,6 +241,11 @@ GLuint createProgram(GLFunctions& gl, std::string_view vertexSource, std::string
 
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
+  for (size_t i = 0; i < bindingCount; ++i) {
+    if (bindings[i].name && bindings[i].name[0] != '\0') {
+      gl.bindAttribLocation(program, bindings[i].location, bindings[i].name);
+    }
+  }
   gl.linkProgram(program);
 
   GLint linkStatus = 0;
@@ -292,7 +309,13 @@ constexpr std::array<GLushort, 36> kIndices = {{
     20, 21, 22, 20, 22, 23,
 }};
 
-constexpr std::string_view kVertexShaderSource = R"(#version 300 es
+constexpr AttributeBinding kAttributeBindings[] = {
+    {0, "aPosition"},
+    {1, "aNormal"},
+    {2, "aColour"},
+};
+
+constexpr std::string_view kVertexShaderSourceEs3 = R"(#version 300 es
 precision mediump float;
 
 layout(location = 0) in vec3 aPosition;
@@ -306,13 +329,13 @@ out vec3 vNormal;
 out vec3 vColour;
 
 void main() {
-  vNormal = mat3(uModel) * aNormal;
+  vNormal = (uModel * vec4(aNormal, 0.0)).xyz;
   vColour = aColour;
   gl_Position = uMvp * vec4(aPosition, 1.0);
 }
 )";
 
-constexpr std::string_view kFragmentShaderSource = R"(#version 300 es
+constexpr std::string_view kFragmentShaderSourceEs3 = R"(#version 300 es
 precision mediump float;
 
 in vec3 vNormal;
@@ -330,6 +353,43 @@ void main() {
   float highlight = pow(max(dot(reflect(uLightDirection, normal), vec3(0.0, 0.0, 1.0)), 0.0), 18.0) * 0.18;
   vec3 colour = vColour * (ambient + diffuse * 0.72) + vec3(highlight);
   fragColour = vec4(colour, 1.0);
+}
+)";
+
+constexpr std::string_view kVertexShaderSourceEs2 = R"(precision mediump float;
+
+attribute vec3 aPosition;
+attribute vec3 aNormal;
+attribute vec3 aColour;
+
+uniform mat4 uMvp;
+uniform mat4 uModel;
+
+varying vec3 vNormal;
+varying vec3 vColour;
+
+void main() {
+  vNormal = (uModel * vec4(aNormal, 0.0)).xyz;
+  vColour = aColour;
+  gl_Position = uMvp * vec4(aPosition, 1.0);
+}
+)";
+
+constexpr std::string_view kFragmentShaderSourceEs2 = R"(precision mediump float;
+
+varying vec3 vNormal;
+varying vec3 vColour;
+
+uniform vec3 uLightDirection;
+
+void main() {
+  vec3 normal = normalize(vNormal);
+  vec3 light = normalize(-uLightDirection);
+  float diffuse = max(dot(normal, light), 0.0);
+  float ambient = 0.28;
+  float highlight = pow(max(dot(reflect(uLightDirection, normal), vec3(0.0, 0.0, 1.0)), 0.0), 18.0) * 0.18;
+  vec3 colour = vColour * (ambient + diffuse * 0.72) + vec3(highlight);
+  gl_FragColor = vec4(colour, 1.0);
 }
 )";
 
@@ -384,7 +444,16 @@ void Canvas3D::renderGL(SceneRenderer& renderer, const BLRect& rect, double seco
   }
 
   if (impl_->program == 0) {
-    impl_->program = createProgram(impl_->gl, kVertexShaderSource, kFragmentShaderSource);
+    const bool useEs3Shaders = renderer.glMajorVersion_ >= 3;
+    const std::string_view vertexShaderSource = useEs3Shaders ? kVertexShaderSourceEs3 : kVertexShaderSourceEs2;
+    const std::string_view fragmentShaderSource = useEs3Shaders ? kFragmentShaderSourceEs3 : kFragmentShaderSourceEs2;
+    const AttributeBinding* bindings = useEs3Shaders ? nullptr : kAttributeBindings;
+    const size_t bindingCount = useEs3Shaders ? 0 : std::size(kAttributeBindings);
+    impl_->program = createProgram(impl_->gl,
+                                   vertexShaderSource,
+                                   fragmentShaderSource,
+                                   bindings,
+                                   bindingCount);
     if (impl_->program == 0) return;
 
     impl_->mvpUniform = impl_->gl.getUniformLocation(impl_->program, "uMvp");

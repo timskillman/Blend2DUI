@@ -42,6 +42,8 @@ class DemoScreen {
   void renderInputs(SceneRenderer& renderer, const UI_RectArea& inputArea);
   void renderSliders(SceneRenderer& renderer, double width);
   void renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect);
+  void renderFpsCounter(SceneRenderer& renderer, double width, double height);
+  void updateFpsCounter(double seconds);
   void renderPanel(SceneRenderer& renderer,
                    double seconds,
                    double pulse,
@@ -65,6 +67,9 @@ class DemoScreen {
   double previewSplitRatio_ = 0.66;
   double previewDividerGrabOffset_ = 0.0;
   bool draggingPreviewDivider_ = false;
+  double lastFrameSeconds_ = -1.0;
+  double smoothedFrameDelta_ = 1.0 / 60.0;
+  double displayedFps_ = 60.0;
   Canvas3D canvas3D_;
 };
 
