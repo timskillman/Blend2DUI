@@ -267,7 +267,7 @@ void DemoScreen::renderFpsCounter(SceneRenderer& renderer, double width, double 
   constexpr double kMargin = 18.0;
 
   const BLRect badgeRect(std::max(8.0, width - kBadgeW - kMargin),
-                         std::max(8.0, height - kBadgeH - kMargin),
+                         kMargin,
                          kBadgeW,
                          kBadgeH);
   const BLRect labelRect(badgeRect.x + 10.0,

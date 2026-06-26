@@ -122,6 +122,17 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/assets")
   )
 endif()
 
+if(EXISTS "${CMAKE_SOURCE_DIR}/assets/heaven.jpg")
+  add_custom_command(
+    TARGET blend2d_ui_demo
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/assets/heaven.jpg"
+            "$<TARGET_FILE_DIR:blend2d_ui_demo>/assets/Heaven.jpg"
+    COMMENT "Copying heaven.jpg with the case expected by the demo"
+  )
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
   add_custom_command(
     TARGET blend2d_ui_demo
