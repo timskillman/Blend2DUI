@@ -98,7 +98,6 @@ struct UI_ButtonResources {
   std::unordered_map<std::string, BLFontFace>* fonts = nullptr;
   UI_ShapedTextCache* shapedText = nullptr;
   std::string assetBasePath = ".";
-  bool lowPowerMode = false;
 };
 
 class Button {

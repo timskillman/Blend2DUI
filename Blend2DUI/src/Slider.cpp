@@ -151,7 +151,6 @@ void drawFallbackTrack(BLContext& ctx,
                        const BLRect& track,
                        const UI_SliderOptions& options,
                        const UI_ButtonStyle& style,
-                       bool lowPowerMode,
                        double ratio) {
   const bool horizontal = options.orientation == UI_SliderOrientation::Horizontal;
   const double corner = horizontal ? track.h * 0.5 : track.w * 0.5;
@@ -169,17 +168,13 @@ void drawFallbackTrack(BLContext& ctx,
     lit.y = track.y + track.h - litH;
     lit.h = litH;
   }
-  if (lowPowerMode) {
-    ctx.set_fill_style(BLRgba32(blendColour(style.pressedColour, style.hoverColour, 0.3)));
-  } else {
-    BLGradient glow(horizontal
-                        ? BLLinearGradientValues(lit.x, lit.y, lit.x + lit.w, lit.y)
-                        : BLLinearGradientValues(lit.x, lit.y + lit.h, lit.x, lit.y));
-    glow.add_stop(0.0, BLRgba32(style.pressedColour));
-    glow.add_stop(0.55, BLRgba32(blendColour(style.pressedColour, style.hoverColour, 0.45)));
-    glow.add_stop(1.0, BLRgba32(style.hoverColour));
-    ctx.set_fill_style(glow);
-  }
+  BLGradient glow(horizontal
+                      ? BLLinearGradientValues(lit.x, lit.y, lit.x + lit.w, lit.y)
+                      : BLLinearGradientValues(lit.x, lit.y + lit.h, lit.x, lit.y));
+  glow.add_stop(0.0, BLRgba32(style.pressedColour));
+  glow.add_stop(0.55, BLRgba32(blendColour(style.pressedColour, style.hoverColour, 0.45)));
+  glow.add_stop(1.0, BLRgba32(style.hoverColour));
+  ctx.set_fill_style(glow);
   ctx.fill_round_rect(BLRoundRect(lit.x, lit.y, lit.w, lit.h, corner));
 }
 
@@ -201,7 +196,7 @@ void drawArtworkTrack(BLContext& ctx,
   const bool hasUnlit = unlitLeft || unlitMiddle || unlitRight;
   const bool hasLit = litLeft || litMiddle || litRight;
   if (!hasUnlit && !hasLit) {
-    drawFallbackTrack(ctx, track, options, style, resources.lowPowerMode, ratio);
+    drawFallbackTrack(ctx, track, options, style, ratio);
     return;
   }
 

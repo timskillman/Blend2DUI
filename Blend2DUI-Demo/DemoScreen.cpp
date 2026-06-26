@@ -151,29 +151,16 @@ class DefaultDemoPanel final : public Blend2DUI::DemoPanel {
     const double corner = 6.0;
     canvas.set_fill_style(BLRgba32(0xFF111827u));
     canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
-
-    if (renderer.lowPowerMode()) {
-      const double cx = rect.x + rect.w * 0.34;
-      const double cy = rect.y + rect.h * 0.52;
-      const double radius = std::min(rect.w, rect.h) * 0.24;
-      canvas.set_fill_style(BLRgba32(0xFF16324Bu));
-      canvas.fill_circle(BLCircle(cx, cy, radius * 1.6));
-      canvas.set_fill_style(BLRgba32(0xFF38BDF8u));
-      canvas.fill_circle(BLCircle(cx, cy, radius));
-      canvas.set_fill_style(BLRgba32(0xCCFFF7ADu));
-      canvas.fill_circle(BLCircle(cx - radius * 0.28, cy - radius * 0.22, radius * 0.34));
-    } else {
-      BLGradient orb(BLRadialGradientValues(rect.x + rect.w * (0.1 + 0.3 * pulse),
-                                            rect.y + rect.h * 0.5,
-                                            rect.x + rect.w * 0.25,
-                                            rect.y + rect.h * 0.35,
-                                            std::min(rect.w, rect.h) * 0.45));
-      orb.add_stop(0.0, BLRgba32(0xFFFFF7ADu));
-      orb.add_stop(0.45, BLRgba32(0xFF38BDF8u));
-      orb.add_stop(1.0, BLRgba32(0x00111827u));
-      canvas.set_fill_style(orb);
-      canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
-    }
+    BLGradient orb(BLRadialGradientValues(rect.x + rect.w * (0.1 + 0.3 * pulse),
+                                          rect.y + rect.h * 0.5,
+                                          rect.x + rect.w * 0.25,
+                                          rect.y + rect.h * 0.35,
+                                          std::min(rect.w, rect.h) * 0.45));
+    orb.add_stop(0.0, BLRgba32(0xFFFFF7ADu));
+    orb.add_stop(0.45, BLRgba32(0xFF38BDF8u));
+    orb.add_stop(1.0, BLRgba32(0x00111827u));
+    canvas.set_fill_style(orb);
+    canvas.fill_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
 
     if (!screen.selectedFilePath().empty()) {
       canvas.set_fill_style(BLRgba32(0xF0FFFFFFu));
@@ -407,7 +394,7 @@ void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rec
   constexpr double kScrollbarGap = 10.0;
   constexpr double kScrollbarWidth = 10.0;
   constexpr double kShowcaseItemGap = 4.0;
-  const double imageBlockHeight = renderer.lowPowerMode() ? 36.0 : 54.0;
+  const double imageBlockHeight = 54.0;
   const double contentHeight = 20.0 + 18.0 + 26.0 + 26.0 + imageBlockHeight + 32.0 + kShowcaseItemGap * 5.0 + 8.0;
   const double maxScroll = std::max(0.0, contentHeight - showcaseDrawable.h);
   widgetShowcaseScroll_ = std::clamp(widgetShowcaseScroll_, 0.0, maxScroll);
@@ -495,17 +482,10 @@ void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rec
                      toggleEnabled_,
                      kDemoStyles.toggle,
                      UI_ButtonContent("iOS-style toggle"));
-  if (renderer.lowPowerMode()) {
-    renderer.UI_Label("widget-showcase.image-disabled",
-                      "100%x36",
-                      kDemoStyles.label,
-                      UI_ButtonContent("Image preview disabled in low-power mode"));
-  } else {
-    renderer.UI_Image("widget-showcase.image",
-                      "100%x54",
-                      kDemoStyles.imageFrame,
-                      UI_ButtonContent("", "", "assets/Heaven.jpg"));
-  }
+  renderer.UI_Image("widget-showcase.image",
+                    "100%x54",
+                    kDemoStyles.imageFrame,
+                    UI_ButtonContent("", "", "assets/Heaven.jpg"));
 
   UI_ContextMenuOptions menuOptions;
   menuOptions.menuWidth = std::max(156.0, contentRect.w);
@@ -546,9 +526,6 @@ void DemoScreen::renderPanel(SceneRenderer& renderer,
                              double height,
                              double panelY) {
   DemoProfileScope sectionProfile(renderer, "demo.panel");
-  auto containsPoint = [](const BLRect& rect, double x, double y) {
-    return x >= rect.x && y >= rect.y && x <= rect.x + rect.w && y <= rect.y + rect.h;
-  };
 
   BLContext& canvas = renderer.context();
   const double panelH = std::max(120.0, height - panelY - 32.0);
@@ -559,52 +536,13 @@ void DemoScreen::renderPanel(SceneRenderer& renderer,
                            std::max(80.0, panelH - 48.0));
   const BLRect previewAreaRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
 
-  const double canvas3DGap = previewAreaRect.w >= 260.0 ? 20.0 : 12.0;
-  const double minOrbWidth = 60.0;
-  const double minCanvas3DWidth = 96.0;
-  const double availablePreviewWidth = std::max(0.0, previewAreaRect.w - canvas3DGap);
-  const double minSplitRatio = availablePreviewWidth > 0.0 ? std::min(0.9, minOrbWidth / availablePreviewWidth) : 0.5;
-  const double maxSplitRatio = availablePreviewWidth > 0.0 ? std::max(minSplitRatio, 1.0 - (minCanvas3DWidth / availablePreviewWidth)) : minSplitRatio;
-  previewSplitRatio_ = std::clamp(previewSplitRatio_, minSplitRatio, maxSplitRatio);
-
-  double orbWidth = std::clamp(availablePreviewWidth * previewSplitRatio_, minOrbWidth, std::max(minOrbWidth, availablePreviewWidth - minCanvas3DWidth));
-  double canvas3DWidth = std::max(minCanvas3DWidth, previewAreaRect.w - orbWidth - canvas3DGap);
-  double dividerX = previewAreaRect.x + orbWidth;
-  BLRect dividerRect(dividerX,
-                     previewAreaRect.y,
-                     canvas3DGap,
-                     previewAreaRect.h);
-  BLRect dividerHitRect(dividerRect.x - 4.0,
-                        dividerRect.y,
-                        dividerRect.w + 8.0,
-                        dividerRect.h);
-
-  if (renderer.mousePressed() && containsPoint(dividerHitRect, renderer.mouseX(), renderer.mouseY())) {
-    draggingPreviewDivider_ = true;
-    previewDividerGrabOffset_ = renderer.mouseX() - dividerRect.x;
-  }
-  if (draggingPreviewDivider_ && renderer.mouseDown()) {
-    const double minDividerX = previewAreaRect.x + minOrbWidth;
-    const double maxDividerX = previewAreaRect.x + previewAreaRect.w - canvas3DGap - minCanvas3DWidth;
-    dividerX = std::clamp(renderer.mouseX() - previewDividerGrabOffset_, minDividerX, maxDividerX);
-    orbWidth = dividerX - previewAreaRect.x;
-    canvas3DWidth = std::max(minCanvas3DWidth, previewAreaRect.w - orbWidth - canvas3DGap);
-    previewSplitRatio_ = availablePreviewWidth > 0.0 ? orbWidth / availablePreviewWidth : previewSplitRatio_;
-    dividerRect = BLRect(dividerX, previewAreaRect.y, canvas3DGap, previewAreaRect.h);
-    dividerHitRect = BLRect(dividerRect.x - 4.0, dividerRect.y, dividerRect.w + 8.0, dividerRect.h);
-  }
-  if (draggingPreviewDivider_ && renderer.mouseReleased()) {
-    draggingPreviewDivider_ = false;
-  }
-
-  const BLRect previewRect(previewAreaRect.x,
-                           previewAreaRect.y,
-                           orbWidth,
-                           previewAreaRect.h);
-  const BLRect canvas3DPanelRect(previewRect.x + previewRect.w + canvas3DGap,
-                                 previewAreaRect.y,
-                                 std::max(20.0, canvas3DWidth),
-                                 previewAreaRect.h);
+  UI_SplitterOptions previewSplitterOptions;
+  previewSplitterOptions.gap = previewAreaRect.w >= 260.0 ? 20.0 : 12.0;
+  previewSplitterOptions.leadingMinSize = 60.0;
+  previewSplitterOptions.trailingMinSize = 96.0;
+  BLRect previewRect;
+  BLRect canvas3DPanelRect;
+  previewSplitter_.layout(renderer, previewAreaRect, previewRect, canvas3DPanelRect, previewSplitterOptions);
   const BLRect canvas3DViewport(canvas3DPanelRect.x + 10.0,
                                 canvas3DPanelRect.y + 10.0,
                                 std::max(20.0, canvas3DPanelRect.w - 20.0),
@@ -619,20 +557,7 @@ void DemoScreen::renderPanel(SceneRenderer& renderer,
     panel_->render(*this, renderer, previewRect, seconds, pulse);
   }
 
-  const bool dividerHovered = containsPoint(dividerHitRect, renderer.mouseX(), renderer.mouseY());
-  const uint32_t dividerColour = draggingPreviewDivider_ ? 0xFF38BDF8u : dividerHovered ? 0xFF94A3B8u : 0xFFE2E8F0u;
-  canvas.set_fill_style(BLRgba32(dividerColour));
-  canvas.fill_round_rect(BLRoundRect(dividerRect.x + (dividerRect.w - 6.0) * 0.5,
-                                     dividerRect.y + 14.0,
-                                     6.0,
-                                     std::max(24.0, dividerRect.h - 28.0),
-                                     3.0));
-  canvas.set_fill_style(BLRgba32(0xFFFFFFFFu));
-  for (int i = 0; i < 3; ++i) {
-    canvas.fill_circle(BLCircle(dividerRect.x + dividerRect.w * 0.5,
-                                dividerRect.y + dividerRect.h * 0.5 + (static_cast<double>(i) - 1.0) * 9.0,
-                                1.6));
-  }
+  previewSplitter_.render(renderer, previewSplitterOptions);
 
   canvas.set_fill_style(BLRgba32(0xFF0F172Au));
   canvas.fill_round_rect(BLRoundRect(canvas3DPanelRect.x, canvas3DPanelRect.y, canvas3DPanelRect.w, canvas3DPanelRect.h, 12));

@@ -110,20 +110,6 @@ uint32_t blendColour(uint32_t a, uint32_t b, double t) {
          blendChannel(a, b, 0);
 }
 
-UI_ButtonStyle lowPowerStyle(UI_ButtonStyle style) {
-  style.shadowWidth = 0.0;
-  style.innerShadowWidth = 0.0;
-  style.gradientHover = UI_ButtonGradientHoverMode::None;
-  if (!style.gradients.empty()) {
-    const uint32_t primary = blendColour(style.gradients.front(), style.gradients.back(), 0.5);
-    style.fillColour = blendColour(primary, style.fillColour, 0.2);
-    style.hoverColour = blendColour(primary, style.hoverColour, 0.35);
-    style.pressedColour = blendColour(primary, style.pressedColour, 0.45);
-    style.gradients.clear();
-  }
-  return style;
-}
-
 void setFillStyle(BLContext& ctx,
                   const UI_ButtonStyle& style,
                   const BLRect& rect,
@@ -251,8 +237,7 @@ void drawButtonLike(BLContext& ctx,
                     bool active,
                     double hoverElapsed,
                     bool centeredText) {
-  UI_ButtonStyle renderStyleStorage = resources.lowPowerMode ? lowPowerStyle(style) : style;
-  const UI_ButtonStyle& renderStyle = renderStyleStorage;
+  const UI_ButtonStyle& renderStyle = style;
   const double corner = clampCorner(renderStyle.corner, rect);
   if (renderStyle.shadowWidth > 0.0 && (renderStyle.shadowColour >> 24) != 0) {
     const double spread = renderStyle.shadowWidth;

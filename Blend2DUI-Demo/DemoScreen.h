@@ -2,6 +2,7 @@
 
 #include "Canvas3D.h"
 #include "SceneRenderer.h"
+#include "Splitter.h"
 
 #include <memory>
 #include <string>
@@ -66,9 +67,7 @@ class DemoScreen {
   bool tickBoxChecked_ = true;
   bool toggleEnabled_ = false;
   int contextMenuSelection_ = -1;
-  double previewSplitRatio_ = 0.66;
-  double previewDividerGrabOffset_ = 0.0;
-  bool draggingPreviewDivider_ = false;
+  UI_Splitter previewSplitter_{UI_SplitterOrientation::Vertical, 0.66};
   double widgetShowcaseScroll_ = 0.0;
   double widgetShowcaseScrollbarDragOffset_ = 0.0;
   bool draggingWidgetShowcaseScrollbar_ = false;

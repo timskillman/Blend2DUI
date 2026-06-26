@@ -154,8 +154,6 @@ class SceneRenderer {
   bool endFrame();
   void present();
   bool profilingEnabled() const { return profilingEnabled_; }
-  bool lowPowerMode() const { return lowPowerMode_; }
-  double targetFrameRate() const { return targetFrameRate_; }
   void profileSection(const std::string& name, double elapsedMs);
 
   BLContext& context() { return context_; }
@@ -237,8 +235,6 @@ class SceneRenderer {
   UI_CursorState cursor_;
   std::unordered_map<std::string, UI_CursorState> savedCursors_;
   bool profilingEnabled_ = false;
-  bool lowPowerMode_ = false;
-  double targetFrameRate_ = 60.0;
   int profileFrames_ = 0;
   std::unordered_map<std::string, UI_ProfileBucket> profileBuckets_;
   int width_ = 0;

@@ -75,6 +75,7 @@ add_library(Blend2DUI
   src/Layout.cpp
   src/SceneRenderer.cpp
   src/ShapedTextCache.cpp
+  src/Splitter.cpp
   src/Slider.cpp
   src/TextInput.cpp
   src/Utility.cpp

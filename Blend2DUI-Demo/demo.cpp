@@ -18,10 +18,7 @@ int main(int, char**) {
     return 1;
   }
 
-  const auto targetFrameDuration = std::chrono::duration_cast<Clock::duration>(
-      std::chrono::duration<double>(1.0 / (app.targetFrameRate() > 1.0 ? app.targetFrameRate() : 60.0)));
   const auto start = Clock::now();
-  auto nextFrame = start;
   bool running = true;
   while (running) {
     SDL_Event event;
@@ -30,24 +27,9 @@ int main(int, char**) {
     }
 
     const auto now = Clock::now();
-    if (now < nextFrame) {
-      const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(nextFrame - now);
-      if (remaining.count() > 1) {
-        SDL_Delay(static_cast<Uint32>(remaining.count() - 1));
-      } else {
-        SDL_Delay(1);
-      }
-      continue;
-    }
-
     const double seconds = std::chrono::duration<double>(now - start).count();
     if (screen.renderFrame(app, seconds)) {
       app.present();
-    }
-    const auto afterRender = Clock::now();
-    nextFrame += targetFrameDuration;
-    if (nextFrame < afterRender) {
-      nextFrame = afterRender + targetFrameDuration;
     }
   }
 

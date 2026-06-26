@@ -154,38 +154,6 @@ bool profileEnvironmentEnabled() {
   return text == "1" || text == "true" || text == "TRUE" || text == "on" || text == "ON";
 }
 
-bool parseEnvironmentBool(const char* name, bool fallback) {
-  const char* value = std::getenv(name);
-  if (!value) return fallback;
-  const std::string text(value);
-  if (text == "1" || text == "true" || text == "TRUE" || text == "on" || text == "ON") return true;
-  if (text == "0" || text == "false" || text == "FALSE" || text == "off" || text == "OFF") return false;
-  return fallback;
-}
-
-bool defaultLowPowerMode() {
-#if defined(__linux__) && (defined(__arm__) || defined(__aarch64__))
-  return true;
-#else
-  return false;
-#endif
-}
-
-bool detectLowPowerMode() {
-  return parseEnvironmentBool("BLEND2DUI_LOW_POWER", defaultLowPowerMode());
-}
-
-double detectTargetFrameRate(bool lowPowerMode) {
-  const double fallback = lowPowerMode ? 30.0 : 60.0;
-  const char* value = std::getenv("BLEND2DUI_TARGET_FPS");
-  if (!value || value[0] == '\0') return fallback;
-
-  char* parsedEnd = nullptr;
-  const double parsed = std::strtod(value, &parsedEnd);
-  if (parsedEnd == value || parsed < 5.0 || parsed > 240.0) return fallback;
-  return parsed;
-}
-
 const char* profileLogPath() {
   const char* value = std::getenv("BLEND2DUI_PROFILE_LOG");
   return value && value[0] != '\0' ? value : "blend2d_ui_profile.log";
@@ -372,8 +340,6 @@ void SceneRenderer::setAssetBasePath(std::string assetBasePath) {
 
 bool SceneRenderer::initialize(const std::string& title, int width, int height) {
   profilingEnabled_ = profileEnvironmentEnabled();
-  lowPowerMode_ = detectLowPowerMode();
-  targetFrameRate_ = detectTargetFrameRate(lowPowerMode_);
   if (profilingEnabled_) {
     std::ofstream log(profileLogPath(), std::ios::trunc);
     log << "Blend2DUI profiling enabled\n";
@@ -455,10 +421,6 @@ bool SceneRenderer::initialize(const std::string& title, int width, int height) 
   buttonResources_.fonts = &fontCache_;
   buttonResources_.shapedText = &shapedTextCache_;
   buttonResources_.assetBasePath = assetBasePath_;
-  buttonResources_.lowPowerMode = lowPowerMode_;
-  if (lowPowerMode_) {
-    std::cerr << "Blend2DUI low-power mode enabled, target FPS " << targetFrameRate_ << "\n";
-  }
   SDL_StartTextInput(window_);
 
   return ensureBackBuffer() && ensurePresentationResources();
@@ -509,8 +471,6 @@ void SceneRenderer::shutdown() {
   glReady_ = false;
   glMajorVersion_ = 0;
   glMinorVersion_ = 0;
-  lowPowerMode_ = false;
-  targetFrameRate_ = 60.0;
   image_.reset();
   uploadBuffer_.clear();
   canvas3DRequests_.clear();
@@ -645,10 +605,9 @@ bool SceneRenderer::ensurePresentationResources() {
       std::cerr << "glGenTextures failed for Blend2D backbuffer\n";
       return false;
     }
-    const GLint filter = lowPowerMode_ ? GL_NEAREST : GL_LINEAR;
     gPresentationGL.bindTexture(GL_TEXTURE_2D, glBackBufferTexture_);
-    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     gPresentationGL.texImage2D(GL_TEXTURE_2D,
