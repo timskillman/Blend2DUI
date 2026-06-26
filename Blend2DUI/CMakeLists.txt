@@ -69,6 +69,7 @@ get_filename_component(BLEND2D_DEMO_SOURCE_DIR
 
 add_library(Blend2DUI
   src/Button.cpp
+  src/Canvas3D.cpp
   src/FileDialog.cpp
   src/FontManager.cpp
   src/Layout.cpp
@@ -77,6 +78,7 @@ add_library(Blend2DUI
   src/Slider.cpp
   src/TextInput.cpp
   src/Utility.cpp
+  src/Widgets.cpp
 )
 
 target_include_directories(Blend2DUI
@@ -104,15 +106,31 @@ add_executable(blend2d_ui_demo
 )
 
 target_link_libraries(blend2d_ui_demo PRIVATE Blend2DUI)
-
-add_custom_command(
-  TARGET blend2d_ui_demo
-  POST_BUILD
-  COMMAND "${CMAKE_COMMAND}" -E copy_directory
-          "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-          "$<TARGET_FILE_DIR:blend2d_ui_demo>/assets"
-  COMMENT "Copying Blend2DUI assets next to blend2d_ui_demo"
+target_compile_definitions(blend2d_ui_demo PRIVATE
+  BLEND2DUI_DEMO_ASSET_BASE_PATH="$<TARGET_FILE_DIR:blend2d_ui_demo>"
 )
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/assets")
+  add_custom_command(
+    TARGET blend2d_ui_demo
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:blend2d_ui_demo>/assets"
+    COMMENT "Copying root demo assets next to blend2d_ui_demo"
+  )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+  add_custom_command(
+    TARGET blend2d_ui_demo
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:blend2d_ui_demo>/assets"
+    COMMENT "Copying Blend2DUI assets next to blend2d_ui_demo"
+  )
+endif()
 
 add_executable(blend2d_ui_file_dialog_filter_test
   tests/file_dialog_filter_test.cpp

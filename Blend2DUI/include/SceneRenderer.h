@@ -10,16 +10,33 @@
 #include <SDL3/SDL.h>
 #include <blend2d/blend2d.h>
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace Blend2DUI {
 
+class Canvas3D;
+
 struct UI_ProfileBucket {
   double totalMs = 0.0;
   double maxMs = 0.0;
   int samples = 0;
+};
+
+struct UI_ContextMenuItem {
+  UI_ButtonContent content;
+  bool enabled = true;
+};
+
+struct UI_ContextMenuOptions {
+  double menuWidth = 184.0;
+  double itemHeight = 34.0;
+  double padding = 6.0;
+  double popupOffset = 4.0;
+  bool openOnLeftClick = true;
+  bool openOnRightClick = true;
 };
 
 class SceneRenderer {
@@ -31,6 +48,7 @@ class SceneRenderer {
   SceneRenderer& operator=(const SceneRenderer&) = delete;
 
   bool initialize(const std::string& title, int width, int height);
+  void setAssetBasePath(std::string assetBasePath);
   void shutdown();
 
   bool handleEvent(const SDL_Event& event);
@@ -56,6 +74,58 @@ class SceneRenderer {
                            const std::string& size,
                            const UI_ButtonStyleDefinition& style,
                            const UI_ButtonContent& content = UI_ButtonContent{});
+  bool UI_TickBox(const std::string& id,
+                  const BLRect& rect,
+                  bool& checked,
+                  const UI_ButtonStyleDefinition& style,
+                  const UI_ButtonContent& content = UI_ButtonContent{});
+  bool UI_TickBox(const std::string& id,
+                  const std::string& size,
+                  bool& checked,
+                  const UI_ButtonStyleDefinition& style,
+                  const UI_ButtonContent& content = UI_ButtonContent{});
+  bool UI_Toggle(const std::string& id,
+                 const BLRect& rect,
+                 bool& enabled,
+                 const UI_ButtonStyleDefinition& style,
+                 const UI_ButtonContent& content = UI_ButtonContent{});
+  bool UI_Toggle(const std::string& id,
+                 const std::string& size,
+                 bool& enabled,
+                 const UI_ButtonStyleDefinition& style,
+                 const UI_ButtonContent& content = UI_ButtonContent{});
+  void UI_Label(const std::string& id,
+                const BLRect& rect,
+                const UI_ButtonStyleDefinition& style,
+                const UI_ButtonContent& content = UI_ButtonContent{});
+  void UI_Label(const std::string& id,
+                const std::string& size,
+                const UI_ButtonStyleDefinition& style,
+                const UI_ButtonContent& content = UI_ButtonContent{});
+  void UI_Image(const std::string& id,
+                const BLRect& rect,
+                const UI_ButtonStyleDefinition& style,
+                const UI_ButtonContent& content);
+  void UI_Image(const std::string& id,
+                const std::string& size,
+                const UI_ButtonStyleDefinition& style,
+                const UI_ButtonContent& content);
+  int UI_ContextMenu(const std::string& id,
+                     const BLRect& rect,
+                     const UI_ButtonStyleDefinition& triggerStyle,
+                     const UI_ButtonContent& triggerContent,
+                     const std::vector<UI_ContextMenuItem>& items,
+                     const UI_ButtonStyleDefinition& menuStyle,
+                     const UI_ButtonStyleDefinition& itemStyle,
+                     const UI_ContextMenuOptions& options = UI_ContextMenuOptions{});
+  int UI_ContextMenu(const std::string& id,
+                     const std::string& size,
+                     const UI_ButtonStyleDefinition& triggerStyle,
+                     const UI_ButtonContent& triggerContent,
+                     const std::vector<UI_ContextMenuItem>& items,
+                     const UI_ButtonStyleDefinition& menuStyle,
+                     const UI_ButtonStyleDefinition& itemStyle,
+                     const UI_ContextMenuOptions& options = UI_ContextMenuOptions{});
   bool UI_TextInput(const std::string& id,
                     const BLRect& rect,
                     const UI_TextInputOptions& options,
@@ -76,6 +146,7 @@ class SceneRenderer {
                  const UI_SliderOptions& options,
                  double& value,
                  const UI_ButtonStyleDefinition& style);
+  void queueCanvas3D(Canvas3D& canvas, const BLRect& rect, double seconds);
   UI_FileDialogResult UI_FileDialog(const std::string& id,
                                     const BLRect& rect,
                                     const UI_FileDialogOptions& options,
@@ -89,10 +160,20 @@ class SceneRenderer {
   const BLContext& context() const { return context_; }
   int width() const { return width_; }
   int height() const { return height_; }
+  double mouseX() const { return mouseX_; }
+  double mouseY() const { return mouseY_; }
+  bool mouseDown() const { return mouseDown_; }
+  bool mousePressed() const { return mousePressed_; }
+  bool mouseReleased() const { return mouseReleased_; }
 
  private:
+  friend class Canvas3D;
+
   bool ensureBackBuffer();
   bool resizeBackBuffer(int width, int height);
+  bool initializeOpenGL();
+  bool ensurePresentationResources();
+  void destroyPresentationResources();
   bool uploadBlend2DImage();
   bool pointerCapturedByModal(const std::string& id) const;
   UI_Size resolveLayoutSize(const std::string& size) const;
@@ -101,9 +182,20 @@ class SceneRenderer {
   bool layoutMouseInside() const;
   void profileMaybeReport();
 
+  struct UI_ContextMenuState {
+    bool open = false;
+    double x = 0.0;
+    double y = 0.0;
+  };
+
+  struct Canvas3DRequest {
+    Canvas3D* canvas = nullptr;
+    BLRect rect;
+    double seconds = 0.0;
+  };
+
   SDL_Window* window_ = nullptr;
-  SDL_Renderer* renderer_ = nullptr;
-  SDL_Texture* texture_ = nullptr;
+  SDL_GLContext glContext_ = nullptr;
   BLImage image_;
   BLContext context_;
   bool frameActive_ = false;
@@ -116,6 +208,7 @@ class SceneRenderer {
   bool rightMouseReleased_ = false;
   double frameSeconds_ = 0.0;
   double wheelY_ = 0.0;
+  bool modalOverlayActive_ = false;
   bool modalPointerCaptureActive_ = false;
   bool nextModalPointerCaptureActive_ = false;
   std::string modalPointerCaptureIdPrefix_;
@@ -132,6 +225,7 @@ class SceneRenderer {
   std::unordered_map<std::string, UI_TextInputState> textInputStates_;
   std::unordered_map<std::string, UI_SliderState> sliderStates_;
   std::unordered_map<std::string, UI_FileDialogState> fileDialogStates_;
+  std::unordered_map<std::string, UI_ContextMenuState> contextMenuStates_;
   std::unordered_map<std::string, BLImage> imageCache_;
   std::unordered_map<std::string, BLFontFace> fontCache_;
   UI_ShapedTextCache shapedTextCache_;
@@ -144,6 +238,13 @@ class SceneRenderer {
   std::unordered_map<std::string, UI_ProfileBucket> profileBuckets_;
   int width_ = 0;
   int height_ = 0;
+  bool glReady_ = false;
+  unsigned int glBackBufferTexture_ = 0;
+  unsigned int glPresentationProgram_ = 0;
+  unsigned int glPresentationVbo_ = 0;
+  int glPresentationTextureUniform_ = -1;
+  std::vector<unsigned char> uploadBuffer_;
+  std::vector<Canvas3DRequest> canvas3DRequests_;
 };
 
 }  // namespace Blend2DUI

@@ -1,17 +1,144 @@
 #include "SceneRenderer.h"
 
+#include "Canvas3D.h"
+
+#include <SDL3/SDL_opengles2.h>
+
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace Blend2DUI {
 namespace {
 
 using Clock = std::chrono::steady_clock;
+
+using ActiveTextureProc = decltype(&glActiveTexture);
+using AttachShaderProc = decltype(&glAttachShader);
+using BindBufferProc = decltype(&glBindBuffer);
+using BindTextureProc = decltype(&glBindTexture);
+using BufferDataProc = decltype(&glBufferData);
+using ClearProc = decltype(&glClear);
+using ClearColorProc = decltype(&glClearColor);
+using CompileShaderProc = decltype(&glCompileShader);
+using CreateProgramProc = decltype(&glCreateProgram);
+using CreateShaderProc = decltype(&glCreateShader);
+using DeleteBuffersProc = decltype(&glDeleteBuffers);
+using DeleteProgramProc = decltype(&glDeleteProgram);
+using DeleteShaderProc = decltype(&glDeleteShader);
+using DeleteTexturesProc = decltype(&glDeleteTextures);
+using DisableProc = decltype(&glDisable);
+using DrawArraysProc = decltype(&glDrawArrays);
+using EnableVertexAttribArrayProc = decltype(&glEnableVertexAttribArray);
+using GenBuffersProc = decltype(&glGenBuffers);
+using GenTexturesProc = decltype(&glGenTextures);
+using GetProgramInfoLogProc = decltype(&glGetProgramInfoLog);
+using GetProgramivProc = decltype(&glGetProgramiv);
+using GetShaderInfoLogProc = decltype(&glGetShaderInfoLog);
+using GetShaderivProc = decltype(&glGetShaderiv);
+using GetUniformLocationProc = decltype(&glGetUniformLocation);
+using LinkProgramProc = decltype(&glLinkProgram);
+using ShaderSourceProc = decltype(&glShaderSource);
+using TexImage2DProc = decltype(&glTexImage2D);
+using TexParameteriProc = decltype(&glTexParameteri);
+using TexSubImage2DProc = decltype(&glTexSubImage2D);
+using Uniform1iProc = decltype(&glUniform1i);
+using UseProgramProc = decltype(&glUseProgram);
+using VertexAttribPointerProc = decltype(&glVertexAttribPointer);
+using ViewportProc = decltype(&glViewport);
+
+template <typename Proc>
+bool loadProc(Proc& proc, const char* name) {
+  proc = reinterpret_cast<Proc>(SDL_GL_GetProcAddress(name));
+  if (!proc) {
+    std::cerr << "SDL_GL_GetProcAddress failed for " << name << ": " << SDL_GetError() << "\n";
+    return false;
+  }
+  return true;
+}
+
+struct PresentationGLFunctions {
+  ActiveTextureProc activeTexture = nullptr;
+  AttachShaderProc attachShader = nullptr;
+  BindBufferProc bindBuffer = nullptr;
+  BindTextureProc bindTexture = nullptr;
+  BufferDataProc bufferData = nullptr;
+  ClearProc clear = nullptr;
+  ClearColorProc clearColor = nullptr;
+  CompileShaderProc compileShader = nullptr;
+  CreateProgramProc createProgram = nullptr;
+  CreateShaderProc createShader = nullptr;
+  DeleteBuffersProc deleteBuffers = nullptr;
+  DeleteProgramProc deleteProgram = nullptr;
+  DeleteShaderProc deleteShader = nullptr;
+  DeleteTexturesProc deleteTextures = nullptr;
+  DisableProc disable = nullptr;
+  DrawArraysProc drawArrays = nullptr;
+  EnableVertexAttribArrayProc enableVertexAttribArray = nullptr;
+  GenBuffersProc genBuffers = nullptr;
+  GenTexturesProc genTextures = nullptr;
+  GetProgramInfoLogProc getProgramInfoLog = nullptr;
+  GetProgramivProc getProgramiv = nullptr;
+  GetShaderInfoLogProc getShaderInfoLog = nullptr;
+  GetShaderivProc getShaderiv = nullptr;
+  GetUniformLocationProc getUniformLocation = nullptr;
+  LinkProgramProc linkProgram = nullptr;
+  ShaderSourceProc shaderSource = nullptr;
+  TexImage2DProc texImage2D = nullptr;
+  TexParameteriProc texParameteri = nullptr;
+  TexSubImage2DProc texSubImage2D = nullptr;
+  Uniform1iProc uniform1i = nullptr;
+  UseProgramProc useProgram = nullptr;
+  VertexAttribPointerProc vertexAttribPointer = nullptr;
+  ViewportProc viewport = nullptr;
+
+  bool load() {
+    return loadProc(activeTexture, "glActiveTexture") &&
+           loadProc(attachShader, "glAttachShader") &&
+           loadProc(bindBuffer, "glBindBuffer") &&
+           loadProc(bindTexture, "glBindTexture") &&
+           loadProc(bufferData, "glBufferData") &&
+           loadProc(clear, "glClear") &&
+           loadProc(clearColor, "glClearColor") &&
+           loadProc(compileShader, "glCompileShader") &&
+           loadProc(createProgram, "glCreateProgram") &&
+           loadProc(createShader, "glCreateShader") &&
+           loadProc(deleteBuffers, "glDeleteBuffers") &&
+           loadProc(deleteProgram, "glDeleteProgram") &&
+           loadProc(deleteShader, "glDeleteShader") &&
+           loadProc(deleteTextures, "glDeleteTextures") &&
+           loadProc(disable, "glDisable") &&
+           loadProc(drawArrays, "glDrawArrays") &&
+           loadProc(enableVertexAttribArray, "glEnableVertexAttribArray") &&
+           loadProc(genBuffers, "glGenBuffers") &&
+           loadProc(genTextures, "glGenTextures") &&
+           loadProc(getProgramInfoLog, "glGetProgramInfoLog") &&
+           loadProc(getProgramiv, "glGetProgramiv") &&
+           loadProc(getShaderInfoLog, "glGetShaderInfoLog") &&
+           loadProc(getShaderiv, "glGetShaderiv") &&
+           loadProc(getUniformLocation, "glGetUniformLocation") &&
+           loadProc(linkProgram, "glLinkProgram") &&
+           loadProc(shaderSource, "glShaderSource") &&
+           loadProc(texImage2D, "glTexImage2D") &&
+           loadProc(texParameteri, "glTexParameteri") &&
+           loadProc(texSubImage2D, "glTexSubImage2D") &&
+           loadProc(uniform1i, "glUniform1i") &&
+           loadProc(useProgram, "glUseProgram") &&
+           loadProc(vertexAttribPointer, "glVertexAttribPointer") &&
+           loadProc(viewport, "glViewport");
+  }
+};
+
+PresentationGLFunctions gPresentationGL;
+bool gPresentationGLLoaded = false;
 
 double elapsedMs(Clock::time_point start) {
   return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
@@ -29,10 +156,115 @@ const char* profileLogPath() {
   return value && value[0] != '\0' ? value : "blend2d_ui_profile.log";
 }
 
+GLuint compileShader(PresentationGLFunctions& gl, GLenum type, std::string_view source) {
+  const GLuint shader = gl.createShader(type);
+  if (!shader) return 0;
+
+  const GLchar* sourcePtr = source.data();
+  const GLint sourceLength = static_cast<GLint>(source.size());
+  gl.shaderSource(shader, 1, &sourcePtr, &sourceLength);
+  gl.compileShader(shader);
+
+  GLint compileStatus = 0;
+  gl.getShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
+  if (compileStatus == GL_TRUE) return shader;
+
+  char logBuffer[1024] = {};
+  GLsizei logLength = 0;
+  gl.getShaderInfoLog(shader, static_cast<GLsizei>(std::size(logBuffer)), &logLength, logBuffer);
+  std::cerr << "Presentation shader compilation failed: " << logBuffer << "\n";
+  gl.deleteShader(shader);
+  return 0;
+}
+
+GLuint createProgram(PresentationGLFunctions& gl, std::string_view vertexSource, std::string_view fragmentSource) {
+  const GLuint vertexShader = compileShader(gl, GL_VERTEX_SHADER, vertexSource);
+  if (!vertexShader) return 0;
+
+  const GLuint fragmentShader = compileShader(gl, GL_FRAGMENT_SHADER, fragmentSource);
+  if (!fragmentShader) {
+    gl.deleteShader(vertexShader);
+    return 0;
+  }
+
+  const GLuint program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    return 0;
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  GLint linkStatus = 0;
+  gl.getProgramiv(program, GL_LINK_STATUS, &linkStatus);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  if (linkStatus == GL_TRUE) return program;
+
+  char logBuffer[1024] = {};
+  GLsizei logLength = 0;
+  gl.getProgramInfoLog(program, static_cast<GLsizei>(std::size(logBuffer)), &logLength, logBuffer);
+  std::cerr << "Presentation shader link failed: " << logBuffer << "\n";
+  gl.deleteProgram(program);
+  return 0;
+}
+
+struct QuadVertex {
+  GLfloat position[2];
+  GLfloat uv[2];
+};
+
+constexpr std::array<QuadVertex, 4> kPresentationQuad = {{
+    {{-1.0f, 1.0f}, {0.0f, 0.0f}},
+    {{-1.0f, -1.0f}, {0.0f, 1.0f}},
+    {{1.0f, 1.0f}, {1.0f, 0.0f}},
+    {{1.0f, -1.0f}, {1.0f, 1.0f}},
+}};
+
+constexpr std::string_view kPresentationVertexShader = R"(#version 300 es
+precision mediump float;
+
+layout(location = 0) in vec2 aPosition;
+layout(location = 1) in vec2 aUv;
+
+out vec2 vUv;
+
+void main() {
+  vUv = aUv;
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+)";
+
+constexpr std::string_view kPresentationFragmentShader = R"(#version 300 es
+precision mediump float;
+
+uniform sampler2D uTexture;
+
+in vec2 vUv;
+
+out vec4 fragColour;
+
+void main() {
+  vec4 sampled = texture(uTexture, vUv);
+  fragColour = sampled.bgra;
+}
+)";
+
 }  // namespace
 
 SceneRenderer::~SceneRenderer() {
   shutdown();
+}
+
+void SceneRenderer::setAssetBasePath(std::string assetBasePath) {
+  assetBasePath_ = assetBasePath.empty() ? "." : std::move(assetBasePath);
+  buttonResources_.assetBasePath = assetBasePath_;
+  imageCache_.clear();
+  fontCache_.clear();
+  shapedTextCache_.clear();
 }
 
 bool SceneRenderer::initialize(const std::string& title, int width, int height) {
@@ -46,16 +278,22 @@ bool SceneRenderer::initialize(const std::string& title, int width, int height) 
     return false;
   }
 
-  window_ = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_RESIZABLE);
+  SDL_GL_ResetAttributes();
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+  window_ = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
   if (!window_) {
     std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
     shutdown();
     return false;
   }
 
-  renderer_ = SDL_CreateRenderer(window_, nullptr);
-  if (!renderer_) {
-    std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << "\n";
+  if (!initializeOpenGL()) {
     shutdown();
     return false;
   }
@@ -66,7 +304,24 @@ bool SceneRenderer::initialize(const std::string& title, int width, int height) 
   buttonResources_.assetBasePath = assetBasePath_;
   SDL_StartTextInput(window_);
 
-  return ensureBackBuffer();
+  return ensureBackBuffer() && ensurePresentationResources();
+}
+
+bool SceneRenderer::initializeOpenGL() {
+  glContext_ = SDL_GL_CreateContext(window_);
+  if (!glContext_) {
+    std::cerr << "SDL_GL_CreateContext failed: " << SDL_GetError() << "\n";
+    return false;
+  }
+  if (!SDL_GL_MakeCurrent(window_, glContext_)) {
+    std::cerr << "SDL_GL_MakeCurrent failed: " << SDL_GetError() << "\n";
+    return false;
+  }
+  if (!SDL_GL_SetSwapInterval(1)) {
+    std::cerr << "SDL_GL_SetSwapInterval warning: " << SDL_GetError() << "\n";
+  }
+  glReady_ = true;
+  return true;
 }
 
 void SceneRenderer::shutdown() {
@@ -74,14 +329,16 @@ void SceneRenderer::shutdown() {
     context_.end();
     frameActive_ = false;
   }
-  if (texture_) {
-    SDL_DestroyTexture(texture_);
-    texture_ = nullptr;
+  if (window_ && glContext_) {
+    SDL_GL_MakeCurrent(window_, glContext_);
   }
-  if (renderer_) {
-    SDL_DestroyRenderer(renderer_);
-    renderer_ = nullptr;
+  destroyPresentationResources();
+  if (glContext_) {
+    SDL_GL_DestroyContext(glContext_);
+    glContext_ = nullptr;
   }
+  gPresentationGLLoaded = false;
+  gPresentationGL = PresentationGLFunctions();
   if (window_) {
     SDL_DestroyWindow(window_);
     window_ = nullptr;
@@ -89,7 +346,10 @@ void SceneRenderer::shutdown() {
   SDL_Quit();
   width_ = 0;
   height_ = 0;
+  glReady_ = false;
   image_.reset();
+  uploadBuffer_.clear();
+  canvas3DRequests_.clear();
   imageCache_.clear();
   fontCache_.clear();
   shapedTextCache_.clear();
@@ -144,7 +404,7 @@ bool SceneRenderer::ensureBackBuffer() {
   SDL_GetWindowSizeInPixels(window_, &pixelWidth, &pixelHeight);
   if (pixelWidth <= 0 || pixelHeight <= 0) return false;
 
-  if (pixelWidth == width_ && pixelHeight == height_ && texture_) {
+  if (pixelWidth == width_ && pixelHeight == height_) {
     if (profilingEnabled_) profileSection("ensureBackBuffer", elapsedMs(profileStart));
     return true;
   }
@@ -155,22 +415,101 @@ bool SceneRenderer::ensureBackBuffer() {
 }
 
 bool SceneRenderer::resizeBackBuffer(int width, int height) {
-  if (texture_) {
-    SDL_DestroyTexture(texture_);
-    texture_ = nullptr;
-  }
-
-  texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-  if (!texture_) {
-    std::cerr << "SDL_CreateTexture failed: " << SDL_GetError() << "\n";
-    return false;
-  }
-
-  SDL_SetTextureBlendMode(texture_, SDL_BLENDMODE_BLEND);
   image_.create(width, height, BL_FORMAT_PRGB32);
   width_ = width;
   height_ = height;
+
+  if (!glReady_) return true;
+  if (!ensurePresentationResources()) return false;
+
+  SDL_GL_MakeCurrent(window_, glContext_);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, glBackBufferTexture_);
+  gPresentationGL.texImage2D(GL_TEXTURE_2D,
+                             0,
+                             GL_RGBA,
+                             width,
+                             height,
+                             0,
+                             GL_RGBA,
+                             GL_UNSIGNED_BYTE,
+                             nullptr);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, 0);
   return true;
+}
+
+bool SceneRenderer::ensurePresentationResources() {
+  if (!glReady_) return false;
+  SDL_GL_MakeCurrent(window_, glContext_);
+
+  if (!gPresentationGLLoaded) {
+    gPresentationGLLoaded = gPresentationGL.load();
+    if (!gPresentationGLLoaded) return false;
+  }
+
+  if (glPresentationProgram_ == 0) {
+    glPresentationProgram_ = createProgram(gPresentationGL,
+                                           kPresentationVertexShader,
+                                           kPresentationFragmentShader);
+    if (glPresentationProgram_ == 0) return false;
+    glPresentationTextureUniform_ = gPresentationGL.getUniformLocation(glPresentationProgram_, "uTexture");
+  }
+
+  if (glPresentationVbo_ == 0) {
+    gPresentationGL.genBuffers(1, &glPresentationVbo_);
+    if (glPresentationVbo_ == 0) {
+      std::cerr << "glGenBuffers failed for presentation quad\n";
+      return false;
+    }
+    gPresentationGL.bindBuffer(GL_ARRAY_BUFFER, glPresentationVbo_);
+    gPresentationGL.bufferData(GL_ARRAY_BUFFER,
+                               static_cast<GLsizeiptr>(sizeof(kPresentationQuad)),
+                               kPresentationQuad.data(),
+                               GL_STATIC_DRAW);
+    gPresentationGL.bindBuffer(GL_ARRAY_BUFFER, 0);
+  }
+
+  if (glBackBufferTexture_ == 0) {
+    gPresentationGL.genTextures(1, &glBackBufferTexture_);
+    if (glBackBufferTexture_ == 0) {
+      std::cerr << "glGenTextures failed for Blend2D backbuffer\n";
+      return false;
+    }
+    gPresentationGL.bindTexture(GL_TEXTURE_2D, glBackBufferTexture_);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gPresentationGL.texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    gPresentationGL.texImage2D(GL_TEXTURE_2D,
+                               0,
+                               GL_RGBA,
+                               std::max(1, width_),
+                               std::max(1, height_),
+                               0,
+                               GL_RGBA,
+                               GL_UNSIGNED_BYTE,
+                               nullptr);
+    gPresentationGL.bindTexture(GL_TEXTURE_2D, 0);
+  }
+
+  return true;
+}
+
+void SceneRenderer::destroyPresentationResources() {
+  if (!gPresentationGLLoaded) return;
+
+  if (glPresentationVbo_ != 0) {
+    gPresentationGL.deleteBuffers(1, &glPresentationVbo_);
+    glPresentationVbo_ = 0;
+  }
+  if (glBackBufferTexture_ != 0) {
+    gPresentationGL.deleteTextures(1, &glBackBufferTexture_);
+    glBackBufferTexture_ = 0;
+  }
+  if (glPresentationProgram_ != 0) {
+    gPresentationGL.deleteProgram(glPresentationProgram_);
+    glPresentationProgram_ = 0;
+  }
+  glPresentationTextureUniform_ = -1;
 }
 
 bool SceneRenderer::beginFrame(double seconds) {
@@ -181,7 +520,9 @@ bool SceneRenderer::beginFrame(double seconds) {
     frameActive_ = false;
   }
 
+  canvas3DRequests_.clear();
   frameSeconds_ = seconds;
+  modalOverlayActive_ = false;
   modalPointerCaptureActive_ = nextModalPointerCaptureActive_;
   modalPointerCaptureIdPrefix_ = nextModalPointerCaptureIdPrefix_;
   nextModalPointerCaptureActive_ = false;
@@ -224,28 +565,97 @@ bool SceneRenderer::endFrame() {
 
 bool SceneRenderer::uploadBlend2DImage() {
   const auto profileStart = Clock::now();
+  if (!ensurePresentationResources()) return false;
+
   BLImageData data;
   if (image_.get_data(&data) != BL_SUCCESS) {
     std::cerr << "BLImage::get_data failed\n";
     return false;
   }
 
-  if (!SDL_UpdateTexture(texture_, nullptr, data.pixel_data, static_cast<int>(data.stride))) {
-    std::cerr << "SDL_UpdateTexture failed: " << SDL_GetError() << "\n";
-    return false;
+  const std::size_t expectedStride = static_cast<std::size_t>(width_) * 4u;
+  const std::byte* sourcePixels = static_cast<const std::byte*>(data.pixel_data);
+  const void* uploadPixels = data.pixel_data;
+
+  if (static_cast<std::size_t>(data.stride) != expectedStride) {
+    uploadBuffer_.resize(expectedStride * static_cast<std::size_t>(height_));
+    for (int row = 0; row < height_; ++row) {
+      std::memcpy(uploadBuffer_.data() + expectedStride * static_cast<std::size_t>(row),
+                  sourcePixels + static_cast<std::size_t>(data.stride) * static_cast<std::size_t>(row),
+                  expectedStride);
+    }
+    uploadPixels = uploadBuffer_.data();
   }
+
+  SDL_GL_MakeCurrent(window_, glContext_);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, glBackBufferTexture_);
+  gPresentationGL.texSubImage2D(GL_TEXTURE_2D,
+                                0,
+                                0,
+                                0,
+                                width_,
+                                height_,
+                                GL_RGBA,
+                                GL_UNSIGNED_BYTE,
+                                uploadPixels);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, 0);
+
   if (profilingEnabled_) profileSection("uploadTexture", elapsedMs(profileStart));
   return true;
 }
 
 void SceneRenderer::present() {
   const auto profileStart = Clock::now();
-  if (!renderer_ || !texture_) return;
-  SDL_SetRenderDrawColor(renderer_, 17, 24, 39, 255);
-  SDL_RenderClear(renderer_);
-  SDL_RenderTexture(renderer_, texture_, nullptr, nullptr);
-  SDL_RenderPresent(renderer_);
+  if (!window_ || !glContext_ || glBackBufferTexture_ == 0 || glPresentationProgram_ == 0) return;
+
+  SDL_GL_MakeCurrent(window_, glContext_);
+
+  gPresentationGL.viewport(0, 0, width_, height_);
+  gPresentationGL.clearColor(0.07f, 0.09f, 0.15f, 1.0f);
+  gPresentationGL.clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  gPresentationGL.disable(GL_DEPTH_TEST);
+  gPresentationGL.disable(GL_SCISSOR_TEST);
+  gPresentationGL.disable(GL_BLEND);
+
+  gPresentationGL.useProgram(glPresentationProgram_);
+  gPresentationGL.activeTexture(GL_TEXTURE0);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, glBackBufferTexture_);
+  gPresentationGL.uniform1i(glPresentationTextureUniform_, 0);
+  gPresentationGL.bindBuffer(GL_ARRAY_BUFFER, glPresentationVbo_);
+  gPresentationGL.enableVertexAttribArray(0);
+  gPresentationGL.enableVertexAttribArray(1);
+  gPresentationGL.vertexAttribPointer(0,
+                                      2,
+                                      GL_FLOAT,
+                                      GL_FALSE,
+                                      static_cast<GLsizei>(sizeof(QuadVertex)),
+                                      reinterpret_cast<const void*>(offsetof(QuadVertex, position)));
+  gPresentationGL.vertexAttribPointer(1,
+                                      2,
+                                      GL_FLOAT,
+                                      GL_FALSE,
+                                      static_cast<GLsizei>(sizeof(QuadVertex)),
+                                      reinterpret_cast<const void*>(offsetof(QuadVertex, uv)));
+  gPresentationGL.drawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(kPresentationQuad.size()));
+  gPresentationGL.bindBuffer(GL_ARRAY_BUFFER, 0);
+  gPresentationGL.bindTexture(GL_TEXTURE_2D, 0);
+  gPresentationGL.useProgram(0);
+
+  if (!modalOverlayActive_) {
+    for (const Canvas3DRequest& request : canvas3DRequests_) {
+      if (request.canvas) {
+        request.canvas->renderGL(*this, request.rect, request.seconds);
+      }
+    }
+  }
+  canvas3DRequests_.clear();
+
+  SDL_GL_SwapWindow(window_);
   if (profilingEnabled_) profileSection("present", elapsedMs(profileStart));
+}
+
+void SceneRenderer::queueCanvas3D(Canvas3D& canvas, const BLRect& rect, double seconds) {
+  canvas3DRequests_.push_back(Canvas3DRequest{&canvas, rect, seconds});
 }
 
 void SceneRenderer::profileSection(const std::string& name, double elapsedMs) {

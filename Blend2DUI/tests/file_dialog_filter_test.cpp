@@ -8,6 +8,13 @@ int main() {
   namespace fs = std::filesystem;
   using namespace Blend2DUI;
 
+#ifdef _WIN32
+  if (pathTextForUi(fs::path("C:\\Users\\tskil\\Documents\\example.txt")) != "C:/Users/tskil/Documents/example.txt") {
+    std::cerr << "Expected UI path formatting to use forward slashes\n";
+    return 1;
+  }
+#endif
+
   const fs::path root = fs::temp_directory_path() / "blend2dui_filter_test";
   std::error_code ec;
   fs::remove_all(root, ec);

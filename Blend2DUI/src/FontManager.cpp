@@ -4,27 +4,6 @@
 #include <cstdlib>
 
 namespace Blend2DUI {
-namespace {
-
-void appendAncestorAssetCandidates(std::vector<std::filesystem::path>& candidates,
-                                   const std::filesystem::path& start,
-                                   const std::filesystem::path& requested) {
-  namespace fs = std::filesystem;
-
-  fs::path cursor = start.empty() ? fs::current_path() : start;
-  if (fs::is_regular_file(cursor)) cursor = cursor.parent_path();
-
-  while (!cursor.empty()) {
-    candidates.push_back(cursor / requested);
-    candidates.push_back(cursor / "assets" / requested);
-
-    const fs::path parent = cursor.parent_path();
-    if (parent == cursor) break;
-    cursor = parent;
-  }
-}
-
-}  // namespace
 
 bool FontManager::hasFontExtension(const std::string& name) {
   const std::string ext = lower(std::filesystem::path(name).extension().string());
@@ -32,28 +11,7 @@ bool FontManager::hasFontExtension(const std::string& name) {
 }
 
 std::filesystem::path FontManager::resolveAssetPath(const std::string& assetBasePath, const std::string& path) {
-  namespace fs = std::filesystem;
-  fs::path requested(path);
-  if (requested.is_absolute() && fs::is_regular_file(requested)) return requested;
-  if (fs::is_regular_file(requested)) return requested;
-
-  const fs::path base(assetBasePath.empty() ? "." : assetBasePath);
-  std::vector<fs::path> candidates = {
-      base / requested,
-      base / "assets" / requested,
-      fs::current_path() / requested,
-      fs::current_path() / "assets" / requested,
-      fs::current_path() / "Blend2DUI" / "assets" / requested,
-  };
-
-#ifndef _WIN32
-  appendAncestorAssetCandidates(candidates, fs::current_path(), requested);
-#endif
-
-  for (const fs::path& candidate : candidates) {
-    if (fs::is_regular_file(candidate)) return candidate;
-  }
-  return requested;
+  return Blend2DUI::resolveAssetPath(assetBasePath, path);
 }
 
 std::filesystem::path FontManager::windowsFontsDirectory() {

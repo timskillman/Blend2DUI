@@ -22,6 +22,28 @@ BLRect insetRect(const BLRect& rect, double inset) {
                 std::max(0.0, rect.h - inset * 2.0));
 }
 
+uint32_t scaleAlpha(uint32_t colour, double factor) {
+  factor = std::max(0.0, std::min(1.0, factor));
+  const uint32_t alpha = (colour >> 24) & 0xFFu;
+  const uint32_t scaled = static_cast<uint32_t>(std::lround(static_cast<double>(alpha) * factor));
+  return (colour & 0x00FFFFFFu) | ((std::min)(scaled, 0xFFu) << 24);
+}
+
+void strokeClippedRoundRect(BLContext& ctx,
+                            const BLRect& clipRect,
+                            const BLRect& rect,
+                            double corner,
+                            uint32_t colour) {
+  if (clipRect.w <= 0.0 || clipRect.h <= 0.0 || (colour >> 24) == 0) return;
+
+  BLContextCookie cookie;
+  ctx.save(cookie);
+  ctx.clip_to_rect(clipRect);
+  ctx.set_stroke_style(BLRgba32(colour));
+  ctx.stroke_round_rect(BLRoundRect(rect.x, rect.y, rect.w, rect.h, corner));
+  ctx.restore(cookie);
+}
+
 UI_ButtonGradientHoverMode parseGradientHoverMode(const std::string& value) {
   const std::string mode = lower(unquote(value));
   if (mode == "cycle") return UI_ButtonGradientHoverMode::Cycle;
@@ -32,49 +54,6 @@ std::vector<uint32_t> parseGradients(const std::string& value) {
   std::vector<uint32_t> colours = parseGradientColours(value);
   if (colours.size() > 10) colours.resize(10);
   return colours;
-}
-
-void appendAncestorAssetCandidates(std::vector<std::filesystem::path>& candidates,
-                                   const std::filesystem::path& start,
-                                   const std::filesystem::path& requested) {
-  namespace fs = std::filesystem;
-
-  fs::path cursor = start.empty() ? fs::current_path() : start;
-  if (fs::is_regular_file(cursor)) cursor = cursor.parent_path();
-
-  while (!cursor.empty()) {
-    candidates.push_back(cursor / requested);
-    candidates.push_back(cursor / "assets" / requested);
-
-    const fs::path parent = cursor.parent_path();
-    if (parent == cursor) break;
-    cursor = parent;
-  }
-}
-
-std::filesystem::path resolveAssetPath(const std::string& assetBasePath, const std::string& path) {
-  namespace fs = std::filesystem;
-  fs::path requested(path);
-  if (requested.is_absolute() && fs::is_regular_file(requested)) return requested;
-  if (fs::is_regular_file(requested)) return requested;
-
-  const fs::path base(assetBasePath.empty() ? "." : assetBasePath);
-  std::vector<fs::path> candidates = {
-      base / requested,
-      base / "assets" / requested,
-      fs::current_path() / requested,
-      fs::current_path() / "assets" / requested,
-      fs::current_path() / "Blend2DUI" / "assets" / requested,
-  };
-
-#ifndef _WIN32
-  appendAncestorAssetCandidates(candidates, fs::current_path(), requested);
-#endif
-
-  for (const fs::path& candidate : candidates) {
-    if (fs::is_regular_file(candidate)) return candidate;
-  }
-  return requested;
 }
 
 const BLImage* loadImage(UI_ButtonResources& resources, std::string_view imagePath) {
@@ -210,7 +189,98 @@ void drawHint(BLContext& ctx,
                      shaped->glyphs.glyph_run());
 }
 
+void drawInnerShadow(BLContext& ctx,
+                     const BLRect& rect,
+                     const UI_ButtonStyle& style,
+                     double corner) {
+  if (!style.hasFill || style.innerShadowWidth <= 0.0 || (style.innerShadowColour >> 24) == 0) return;
+
+  const int layers = std::max(1, static_cast<int>(std::ceil(style.innerShadowWidth)));
+  const double widthFactor = std::max(0.0, std::min(1.0, style.innerShadowWidth));
+  const double maxOffset = std::max(std::abs(style.innerShadowOffsetX), std::abs(style.innerShadowOffsetY));
+  const bool directional = maxOffset > 0.001;
+  ctx.set_stroke_width(1.0);
+
+  for (int i = 0; i < layers; ++i) {
+    const double inset = 0.5 + static_cast<double>(i);
+    const BLRect shadowRect = insetRect(rect, inset);
+    if (shadowRect.w <= 0.0 || shadowRect.h <= 0.0) break;
+
+    const double layerFactor = widthFactor * (1.0 - static_cast<double>(i) / static_cast<double>(layers));
+    const uint32_t colour = scaleAlpha(style.innerShadowColour, layerFactor);
+    if ((colour >> 24) == 0) continue;
+
+    const double shadowCorner = clampCorner(std::max(0.0, corner - inset), shadowRect);
+    if (!directional) {
+      ctx.set_stroke_style(BLRgba32(colour));
+      ctx.stroke_round_rect(BLRoundRect(shadowRect.x, shadowRect.y, shadowRect.w, shadowRect.h, shadowCorner));
+      continue;
+    }
+
+    const double clipInset = std::max(1.5, style.innerShadowWidth + maxOffset + static_cast<double>(i) * 0.25);
+    const double leftWeight = style.innerShadowOffsetX < 0.0 ? std::min(1.0, -style.innerShadowOffsetX / maxOffset) : 0.0;
+    const double rightWeight = style.innerShadowOffsetX > 0.0 ? std::min(1.0, style.innerShadowOffsetX / maxOffset) : 0.0;
+    const double topWeight = style.innerShadowOffsetY < 0.0 ? std::min(1.0, -style.innerShadowOffsetY / maxOffset) : 0.0;
+    const double bottomWeight = style.innerShadowOffsetY > 0.0 ? std::min(1.0, style.innerShadowOffsetY / maxOffset) : 0.0;
+
+    strokeClippedRoundRect(ctx,
+                           BLRect(rect.x, rect.y, rect.w, clipInset),
+                           shadowRect,
+                           shadowCorner,
+                           scaleAlpha(colour, topWeight));
+    strokeClippedRoundRect(ctx,
+                           BLRect(rect.x, rect.y + rect.h - clipInset, rect.w, clipInset),
+                           shadowRect,
+                           shadowCorner,
+                           scaleAlpha(colour, bottomWeight));
+    strokeClippedRoundRect(ctx,
+                           BLRect(rect.x, rect.y, clipInset, rect.h),
+                           shadowRect,
+                           shadowCorner,
+                           scaleAlpha(colour, leftWeight));
+    strokeClippedRoundRect(ctx,
+                           BLRect(rect.x + rect.w - clipInset, rect.y, clipInset, rect.h),
+                           shadowRect,
+                           shadowCorner,
+                           scaleAlpha(colour, rightWeight));
+  }
+}
+
 }  // namespace
+
+UI_ButtonContent::UI_ButtonContent(const UI_ButtonContent& other)
+    : text(other.text), hint(other.hint), image(other.image) {}
+
+UI_ButtonContent::UI_ButtonContent(UI_ButtonContent&& other) noexcept
+    : text(std::move(other.text)), hint(std::move(other.hint)), image(std::move(other.image)) {}
+
+UI_ButtonContent& UI_ButtonContent::operator=(const UI_ButtonContent& other) {
+  if (this == &other) return *this;
+  text = other.text;
+  hint = other.hint;
+  image = other.image;
+  preparedImageValue_.clear();
+  preparedAssetBasePath_.clear();
+  preparedImageCache_ = nullptr;
+  preparedImage_.reset();
+  imagePrepared_ = false;
+  hasPreparedImage_ = false;
+  return *this;
+}
+
+UI_ButtonContent& UI_ButtonContent::operator=(UI_ButtonContent&& other) noexcept {
+  if (this == &other) return *this;
+  text = std::move(other.text);
+  hint = std::move(other.hint);
+  image = std::move(other.image);
+  preparedImageValue_.clear();
+  preparedAssetBasePath_.clear();
+  preparedImageCache_ = nullptr;
+  preparedImage_.reset();
+  imagePrepared_ = false;
+  hasPreparedImage_ = false;
+  return *this;
+}
 
 const BLImage* UI_ButtonContent::preloadImage(UI_ButtonResources& resources) const {
   const bool sameImageRequest = imagePrepared_ &&
@@ -293,13 +363,24 @@ UI_ButtonStyle UI_ButtonStyleDefinition::parseStyle(std::string_view styleText) 
                          ? UI_ButtonContentLayout::ImageAboveText
                          : UI_ButtonContentLayout::ImageLeftTextRight;
     } else if (key == "corner") style.corner = parseDouble(value, style.corner);
+    else if (key == "hasfill") style.hasFill = parseBool(value, style.hasFill);
     else if (key == "fillcolour" || key == "fillcolor") style.fillColour = parseColour(value, style.fillColour);
     else if (key == "hovercolour" || key == "hovercolor") style.hoverColour = parseColour(value, style.hoverColour);
     else if (key == "pressedcolour" || key == "pressedcolor") style.pressedColour = parseColour(value, style.pressedColour);
+    else if (key == "hasstroke") style.hasStroke = parseBool(value, style.hasStroke);
     else if (key == "strokecolour" || key == "strokecolor" || key == "outlinecolour" || key == "outlinecolor") style.strokeColour = parseColour(value, style.strokeColour);
     else if (key == "strokewidth" || key == "outlinethickness") style.strokeWidth = parseDouble(value, style.strokeWidth);
     else if (key == "shadowcolour" || key == "shadowcolor") style.shadowColour = parseColour(value, style.shadowColour);
     else if (key == "shadowwidth" || key == "shadowspread") style.shadowWidth = parseDouble(value, style.shadowWidth);
+    else if (key == "innershadowcolour" || key == "innershadowcolor" || key == "insetshadowcolour" || key == "insetshadowcolor") {
+      style.innerShadowColour = parseColour(value, style.innerShadowColour);
+    } else if (key == "innershadowwidth" || key == "innershadowspread" || key == "insetshadowwidth" || key == "insetshadowspread") {
+      style.innerShadowWidth = parseDouble(value, style.innerShadowWidth);
+    } else if (key == "innershadowoffsetx" || key == "insetshadowoffsetx") {
+      style.innerShadowOffsetX = parseDouble(value, style.innerShadowOffsetX);
+    } else if (key == "innershadowoffsety" || key == "insetshadowoffsety") {
+      style.innerShadowOffsetY = parseDouble(value, style.innerShadowOffsetY);
+    }
     else if (key == "gradients" || key == "gradient") style.gradients = parseGradients(rawPart);
     else if (key == "gradientangle") style.gradientAngle = parseDouble(value, style.gradientAngle);
     else if (key == "gradienthover") style.gradientHover = parseGradientHoverMode(value);
@@ -317,6 +398,7 @@ UI_ButtonStyle UI_ButtonStyleDefinition::parseStyle(std::string_view styleText) 
   style.corner = std::max(0.0, style.corner);
   style.strokeWidth = std::max(0.0, style.strokeWidth);
   style.shadowWidth = std::max(0.0, style.shadowWidth);
+  style.innerShadowWidth = std::max(0.0, style.innerShadowWidth);
   style.fontSize = std::max(6.0, style.fontSize);
   return style;
 }
@@ -370,10 +452,14 @@ UI_ButtonAction Button::render(BLContext& ctx,
   if (active) fill = style.pressedColour;
   else if (hovered) fill = style.hoverColour;
 
-  setFillStyle(ctx, style, rect_, fill, hovered, hoverElapsed);
-  ctx.fill_round_rect(BLRoundRect(rect_.x, rect_.y, rect_.w, rect_.h, corner));
+  if (style.hasFill) {
+    setFillStyle(ctx, style, rect_, fill, hovered, hoverElapsed);
+    ctx.fill_round_rect(BLRoundRect(rect_.x, rect_.y, rect_.w, rect_.h, corner));
+  }
 
-  if (style.strokeWidth > 0.0) {
+  drawInnerShadow(ctx, rect_, style, corner);
+
+  if (style.hasStroke && style.strokeWidth > 0.0) {
     const double strokeInset = style.strokeWidth * 0.5;
     const BLRect strokeRect = insetRect(rect_, strokeInset);
     const double strokeCorner = clampCorner(std::max(0.0, corner - strokeInset), strokeRect);

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -25,5 +26,6 @@ bool contains(const BLRect& rect, double x, double y);
 bool intersects(const BLRect& a, const BLRect& b);
 BLRect intersection(const BLRect& a, const BLRect& b);
 double clampCorner(double corner, const BLRect& rect);
+std::filesystem::path resolveAssetPath(std::string_view assetBasePath, std::string_view path);
 
 }  // namespace Blend2DUI

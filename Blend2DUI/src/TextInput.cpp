@@ -661,11 +661,15 @@ bool TextInput::render(BLContext& ctx,
 
   uint32_t fill = focusedTextInputId == id_ ? style.hoverColour : style.fillColour;
   const double corner = clampCorner(style.corner, state.rect);
-  ctx.set_fill_style(BLRgba32(fill));
-  ctx.fill_round_rect(BLRoundRect(state.rect.x, state.rect.y, state.rect.w, state.rect.h, corner));
-  ctx.set_stroke_style(BLRgba32(focusedTextInputId == id_ ? style.pressedColour : style.strokeColour));
-  ctx.set_stroke_width(std::max(1.0, style.strokeWidth));
-  ctx.stroke_round_rect(BLRoundRect(state.rect.x + 0.5, state.rect.y + 0.5, state.rect.w - 1.0, state.rect.h - 1.0, corner));
+  if (style.hasFill) {
+    ctx.set_fill_style(BLRgba32(fill));
+    ctx.fill_round_rect(BLRoundRect(state.rect.x, state.rect.y, state.rect.w, state.rect.h, corner));
+  }
+  if (style.hasStroke && style.strokeWidth > 0.0) {
+    ctx.set_stroke_style(BLRgba32(focusedTextInputId == id_ ? style.pressedColour : style.strokeColour));
+    ctx.set_stroke_width(style.strokeWidth);
+    ctx.stroke_round_rect(BLRoundRect(state.rect.x + 0.5, state.rect.y + 0.5, state.rect.w - 1.0, state.rect.h - 1.0, corner));
+  }
 
   BLContextCookie cookie;
   ctx.save(cookie);

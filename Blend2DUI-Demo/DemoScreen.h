@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Canvas3D.h"
 #include "SceneRenderer.h"
 
 #include <memory>
@@ -40,6 +41,7 @@ class DemoScreen {
                   bool& openedFileDialogThisFrame);
   void renderInputs(SceneRenderer& renderer, const UI_RectArea& inputArea);
   void renderSliders(SceneRenderer& renderer, double width);
+  void renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect);
   void renderPanel(SceneRenderer& renderer,
                    double seconds,
                    double pulse,
@@ -55,7 +57,15 @@ class DemoScreen {
   std::string singleLineText_;
   std::string multiLineText_;
   double horizontalSliderValue_ = 64.0;
+  double redHorizontalSliderValue_ = 28.0;
   double verticalSliderValue_ = 0.35;
+  bool tickBoxChecked_ = true;
+  bool toggleEnabled_ = false;
+  int contextMenuSelection_ = -1;
+  double previewSplitRatio_ = 0.66;
+  double previewDividerGrabOffset_ = 0.0;
+  bool draggingPreviewDivider_ = false;
+  Canvas3D canvas3D_;
 };
 
 }  // namespace Blend2DUI

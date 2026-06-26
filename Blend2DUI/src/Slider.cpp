@@ -47,27 +47,6 @@ bool hasSvgExtension(const std::filesystem::path& path) {
   return lower(path.extension().string()) == ".svg";
 }
 
-std::filesystem::path resolveAssetPath(const std::string& assetBasePath, const std::string& path) {
-  namespace fs = std::filesystem;
-  fs::path requested(path);
-  if (requested.is_absolute() && fs::is_regular_file(requested)) return requested;
-  if (fs::is_regular_file(requested)) return requested;
-
-  const fs::path base(assetBasePath.empty() ? "." : assetBasePath);
-  std::vector<fs::path> candidates = {
-      base / requested,
-      base / "assets" / requested,
-      fs::current_path() / requested,
-      fs::current_path() / "assets" / requested,
-      fs::current_path() / "Blend2DUI" / "assets" / requested,
-  };
-
-  for (const fs::path& candidate : candidates) {
-    if (fs::is_regular_file(candidate)) return candidate;
-  }
-  return requested;
-}
-
 const BLImage* loadImage(UI_ButtonResources& resources, const std::string& imagePath) {
   if (imagePath.empty() || !resources.images) return nullptr;
 
@@ -122,6 +101,19 @@ void drawText(BLContext& ctx,
   ctx.fill_glyph_run(BLPoint(x, y), shaped->font, shaped->glyphs.glyph_run());
 }
 
+uint32_t blendColour(uint32_t a, uint32_t b, double t) {
+  t = clampValue(t, 0.0, 1.0);
+  const auto blendChannel = [t](uint32_t lhs, uint32_t rhs, int shift) {
+    const double av = static_cast<double>((lhs >> shift) & 0xFFu);
+    const double bv = static_cast<double>((rhs >> shift) & 0xFFu);
+    return static_cast<uint32_t>(std::lround(av + (bv - av) * t)) << shift;
+  };
+  return blendChannel(a, b, 24) |
+         blendChannel(a, b, 16) |
+         blendChannel(a, b, 8) |
+         blendChannel(a, b, 0);
+}
+
 std::string formatValue(double value, const UI_SliderOptions& options) {
   std::ostringstream out;
   if (options.integer) {
@@ -155,7 +147,11 @@ bool acceptsNumericChar(char ch, const std::string& text) {
   return false;
 }
 
-void drawFallbackTrack(BLContext& ctx, const BLRect& track, const UI_SliderOptions& options, double ratio) {
+void drawFallbackTrack(BLContext& ctx,
+                       const BLRect& track,
+                       const UI_SliderOptions& options,
+                       const UI_ButtonStyle& style,
+                       double ratio) {
   const bool horizontal = options.orientation == UI_SliderOrientation::Horizontal;
   const double corner = horizontal ? track.h * 0.5 : track.w * 0.5;
   ctx.set_fill_style(BLRgba32(0xFF1F2937u));
@@ -175,9 +171,9 @@ void drawFallbackTrack(BLContext& ctx, const BLRect& track, const UI_SliderOptio
   BLGradient glow(horizontal
                       ? BLLinearGradientValues(lit.x, lit.y, lit.x + lit.w, lit.y)
                       : BLLinearGradientValues(lit.x, lit.y + lit.h, lit.x, lit.y));
-  glow.add_stop(0.0, BLRgba32(0xFF0EA5E9u));
-  glow.add_stop(0.55, BLRgba32(0xFF38BDF8u));
-  glow.add_stop(1.0, BLRgba32(0xFFE0F2FEu));
+  glow.add_stop(0.0, BLRgba32(style.pressedColour));
+  glow.add_stop(0.55, BLRgba32(blendColour(style.pressedColour, style.hoverColour, 0.45)));
+  glow.add_stop(1.0, BLRgba32(style.hoverColour));
   ctx.set_fill_style(glow);
   ctx.fill_round_rect(BLRoundRect(lit.x, lit.y, lit.w, lit.h, corner));
 }
@@ -186,6 +182,7 @@ void drawArtworkTrack(BLContext& ctx,
                       UI_ButtonResources& resources,
                       const BLRect& track,
                       const UI_SliderOptions& options,
+                      const UI_ButtonStyle& style,
                       double ratio) {
   const UI_SliderArtwork& art = options.artwork;
   const bool horizontal = options.orientation == UI_SliderOrientation::Horizontal;
@@ -199,7 +196,7 @@ void drawArtworkTrack(BLContext& ctx,
   const bool hasUnlit = unlitLeft || unlitMiddle || unlitRight;
   const bool hasLit = litLeft || litMiddle || litRight;
   if (!hasUnlit && !hasLit) {
-    drawFallbackTrack(ctx, track, options, ratio);
+    drawFallbackTrack(ctx, track, options, style, ratio);
     return;
   }
 
@@ -228,14 +225,18 @@ void drawArtworkTrack(BLContext& ctx,
   ctx.restore(cookie);
 }
 
-void drawThumb(BLContext& ctx, UI_ButtonResources& resources, const BLRect& rect, const UI_SliderOptions& options) {
+void drawThumb(BLContext& ctx,
+               UI_ButtonResources& resources,
+               const BLRect& rect,
+               const UI_SliderOptions& options,
+               const UI_ButtonStyle& style) {
   if (const BLImage* image = loadImage(resources, options.artwork.thumb)) {
     drawImageInRect(ctx, image, rect);
     return;
   }
 
-  ctx.set_fill_style(BLRgba32(0xFFE0F2FEu));
-  ctx.set_stroke_style(BLRgba32(0xFF0284C7u));
+  ctx.set_fill_style(BLRgba32(style.hoverColour));
+  ctx.set_stroke_style(BLRgba32(style.pressedColour));
   ctx.set_stroke_width(2.0);
   const double cx = rect.x + rect.w * 0.5;
   const double cy = rect.y + rect.h * 0.5;
@@ -349,7 +350,7 @@ void drawStepButton(BLContext& ctx,
     }
   }
   arrow.close();
-  ctx.set_fill_style(BLRgba32(pressed ? 0xFF38BDF8u : style.textColour));
+  ctx.set_fill_style(BLRgba32(pressed ? style.pressedColour : style.textColour));
   ctx.fill_path(arrow);
 }
 
@@ -583,7 +584,7 @@ bool Slider::render(BLContext& ctx,
   }
 
   const double ratio = valueRatio(value, options_);
-  drawArtworkTrack(ctx, resources, track, options_, ratio);
+  drawArtworkTrack(ctx, resources, track, options_, style, ratio);
 
   BLRect thumbRect;
   if (options_.orientation == UI_SliderOrientation::Horizontal) {
@@ -593,14 +594,19 @@ bool Slider::render(BLContext& ctx,
     const double y = track.y + track.h * (1.0 - ratio);
     thumbRect = BLRect(track.x + track.w * 0.5 - kThumbSize * 0.5, y - kThumbSize * 0.5, kThumbSize, kThumbSize);
   }
-  drawThumb(ctx, resources, thumbRect, options_);
+  drawThumb(ctx, resources, thumbRect, options_, style);
 
   if (options_.showValueEntry) {
-    ctx.set_fill_style(BLRgba32(focusedSliderId == id_ ? style.hoverColour : style.fillColour));
-    ctx.fill_round_rect(BLRoundRect(valueRect.x, valueRect.y, valueRect.w, valueRect.h, std::min(6.0, valueRect.h * 0.35)));
-    ctx.set_stroke_style(BLRgba32(focusedSliderId == id_ ? style.pressedColour : style.strokeColour));
-    ctx.set_stroke_width(1.0);
-    ctx.stroke_round_rect(BLRoundRect(valueRect.x + 0.5, valueRect.y + 0.5, valueRect.w - 1.0, valueRect.h - 1.0, std::min(6.0, valueRect.h * 0.35)));
+    const double valueCorner = std::min(6.0, valueRect.h * 0.35);
+    if (style.hasFill) {
+      ctx.set_fill_style(BLRgba32(focusedSliderId == id_ ? style.hoverColour : style.fillColour));
+      ctx.fill_round_rect(BLRoundRect(valueRect.x, valueRect.y, valueRect.w, valueRect.h, valueCorner));
+    }
+    if (style.hasStroke && style.strokeWidth > 0.0) {
+      ctx.set_stroke_style(BLRgba32(focusedSliderId == id_ ? style.pressedColour : style.strokeColour));
+      ctx.set_stroke_width(style.strokeWidth);
+      ctx.stroke_round_rect(BLRoundRect(valueRect.x + 0.5, valueRect.y + 0.5, valueRect.w - 1.0, valueRect.h - 1.0, valueCorner));
+    }
     drawText(ctx, BLRect(valueRect.x + 6.0, valueRect.y, valueRect.w - 12.0, valueRect.h), style, state.editText, resources, style.textColour, true);
   }
 

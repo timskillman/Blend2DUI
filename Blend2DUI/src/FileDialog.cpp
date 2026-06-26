@@ -21,6 +21,10 @@ BLRect insetRect(const BLRect& rect, double x, double y) {
   return BLRect(rect.x + x, rect.y + y, std::max(0.0, rect.w - x * 2.0), std::max(0.0, rect.h - y * 2.0));
 }
 
+std::string pathTextForUi(const std::filesystem::path& path) {
+  return path.generic_string();
+}
+
 std::string extensionType(const std::filesystem::path& path, bool directory) {
   if (directory) return "Folder";
   std::string ext = path.extension().string();
@@ -694,6 +698,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
                                                       std::string& selectedPath) {
   namespace fs = std::filesystem;
   if (!frameActive_) return UI_FileDialogResult::None;
+  modalOverlayActive_ = true;
   nextModalPointerCaptureActive_ = true;
   nextModalPointerCaptureIdPrefix_ = id;
   auto finishDialog = [&](UI_FileDialogResult result) {
@@ -721,7 +726,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
     state.initialized = true;
     state.currentPath = options.startPath.empty() ? fs::current_path() : options.startPath;
     if (!fs::is_directory(state.currentPath)) state.currentPath = fs::current_path();
-    state.pathText = state.currentPath.string();
+    state.pathText = pathTextForUi(state.currentPath);
     state.filterIndex = 0;
     state.filename = options.defaultFileName;
   }
@@ -734,7 +739,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
       state.selectionAnchorPath.clear();
       state.contextMenuOpen = false;
       state.currentPath = state.pendingPath;
-      state.pathText = state.currentPath.string();
+      state.pathText = pathTextForUi(state.currentPath);
       state.cachedPath.clear();
       state.scanJob.reset();
       state.scanning = false;
@@ -852,7 +857,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
       state.selectionAnchorPath.clear();
       state.contextMenuOpen = false;
       state.currentPath = fs::canonical(requested);
-      state.pathText = state.currentPath.string();
+      state.pathText = pathTextForUi(state.currentPath);
       state.cachedPath.clear();
     }
   }
@@ -1056,7 +1061,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
         state.selectionAnchorPath.clear();
         state.contextMenuOpen = false;
         state.currentPath = entry.path;
-        state.pathText = state.currentPath.string();
+        state.pathText = pathTextForUi(state.currentPath);
         state.cachedPath.clear();
       } else {
         if (state.renaming && state.renamePath != entry.path) cancelRename(state);
@@ -1226,7 +1231,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
     }
     if (UI_Button(id + ".accept", acceptRect, primaryStyle, UI_ButtonContent(options.mode == UI_FileDialogMode::Save ? "Save" : "Load")) == UI_ButtonActionPressed) {
       if (!state.filename.empty()) {
-        selectedPath = (state.currentPath / state.filename).string();
+        selectedPath = pathTextForUi(state.currentPath / state.filename);
         return finishDialog(UI_FileDialogResult::Accepted);
       }
     }
@@ -1262,7 +1267,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
                              return event.key == SDLK_RETURN || event.key == SDLK_KP_ENTER;
                            });
   if (acceptEnter && !state.filename.empty()) {
-    selectedPath = (state.currentPath / state.filename).string();
+    selectedPath = pathTextForUi(state.currentPath / state.filename);
     return finishDialog(UI_FileDialogResult::Accepted);
   }
 

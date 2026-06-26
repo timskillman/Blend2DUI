@@ -33,6 +33,10 @@ struct UI_ButtonContent {
                    std::string_view hintValue = {},
                    std::string_view imageValue = {})
       : text(textValue), hint(hintValue), image(imageValue) {}
+  UI_ButtonContent(const UI_ButtonContent& other);
+  UI_ButtonContent(UI_ButtonContent&& other) noexcept;
+  UI_ButtonContent& operator=(const UI_ButtonContent& other);
+  UI_ButtonContent& operator=(UI_ButtonContent&& other) noexcept;
 
   const BLImage* preloadImage(UI_ButtonResources& resources) const;
 
@@ -52,13 +56,19 @@ struct UI_ButtonContent {
 struct UI_ButtonStyle {
   UI_ButtonContentLayout layout = UI_ButtonContentLayout::ImageLeftTextRight;
   double corner = 6.0;
+  bool hasFill = true;
   uint32_t fillColour = 0xFF505050u;
+  bool hasStroke = true;
   uint32_t hoverColour = 0xFF707070u;
   uint32_t pressedColour = 0xFF404040u;
   uint32_t strokeColour = 0xFF101010u;
   double strokeWidth = 1.0;
   uint32_t shadowColour = 0x00000000u;
   double shadowWidth = 0.0;
+  uint32_t innerShadowColour = 0x00000000u;
+  double innerShadowWidth = 0.0;
+  double innerShadowOffsetX = 0.0;
+  double innerShadowOffsetY = 0.0;
   std::vector<uint32_t> gradients;
   double gradientAngle = 0.0;
   UI_ButtonGradientHoverMode gradientHover = UI_ButtonGradientHoverMode::None;

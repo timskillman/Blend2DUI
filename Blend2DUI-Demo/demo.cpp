@@ -4,9 +4,14 @@
 
 #include <chrono>
 
+#ifndef BLEND2DUI_DEMO_ASSET_BASE_PATH
+#define BLEND2DUI_DEMO_ASSET_BASE_PATH "."
+#endif
+
 int main(int, char**) {
   Blend2DUI::SceneRenderer app;
   Blend2DUI::DemoScreen screen;
+  app.setAssetBasePath(BLEND2DUI_DEMO_ASSET_BASE_PATH);
   if (!app.initialize("Blend2D UI SDL3 Demo", 960, 640)) {
     return 1;
   }
@@ -25,7 +30,7 @@ int main(int, char**) {
       app.present();
     }
 
-    SDL_Delay(16);
+    SDL_Delay(1);
   }
 
   return 0;

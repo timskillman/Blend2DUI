@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <filesystem>
 #include <sstream>
 
 namespace Blend2DUI {
@@ -141,6 +142,26 @@ BLRect intersection(const BLRect& a, const BLRect& b) {
 
 double clampCorner(double corner, const BLRect& rect) {
   return std::max(0.0, std::min(corner, std::min(rect.w, rect.h) * 0.5));
+}
+
+std::filesystem::path resolveAssetPath(std::string_view assetBasePath, std::string_view path) {
+  namespace fs = std::filesystem;
+
+  fs::path requested(path);
+  if (requested.empty()) return {};
+  if (requested.is_absolute()) return requested;
+  if (fs::is_regular_file(requested)) return requested;
+
+  const fs::path base(assetBasePath.empty() ? "." : std::string(assetBasePath));
+  const fs::path fromBase = base / requested;
+  if (fs::is_regular_file(fromBase)) return fromBase;
+
+  if (!requested.has_parent_path()) {
+    const fs::path fromAssetFolder = base / "assets" / requested;
+    if (fs::is_regular_file(fromAssetFolder)) return fromAssetFolder;
+  }
+
+  return fromBase;
 }
 
 }  // namespace Blend2DUI
