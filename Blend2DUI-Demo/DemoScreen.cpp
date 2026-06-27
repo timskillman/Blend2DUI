@@ -210,7 +210,6 @@ bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   if (!renderer.beginFrame(seconds)) return false;
   updateFpsCounter(seconds);
 
-  bool openedFileDialogThisFrame = false;
   const double width = static_cast<double>(renderer.width());
   const double height = static_cast<double>(renderer.height());
   const double pulse = 0.5 + 0.5 * std::sin(seconds * 2.2);
@@ -220,31 +219,29 @@ bool DemoScreen::renderFrame(SceneRenderer& renderer, double seconds) {
   UI_RectArea menuArea;
   menuArea.SetRect(BLRect(kMenuMarginX, kMenuTop, std::max(80.0, width - (kMenuMarginX * 2.0)), kMenuHeight), kDemoStyles.menuRect);
   UI_RectArea inputArea;
-  inputArea.SetRect(BLRect(kInputMarginX,
-                           kInputTop,
-                           std::max(kInputMinWidth, width - (kInputMarginX * 2.0)),
-                           inputAreaHeight),
-                    kDemoStyles.inputRect);
+  inputArea.SetRect(BLRect(kInputMarginX, kInputTop, std::max(kInputMinWidth, width - (kInputMarginX * 2.0)), inputAreaHeight), kDemoStyles.inputRect);
 
-  renderMenu(renderer, menuArea, openedFileDialogThisFrame);
+  renderMenu(renderer, menuArea);
   renderInputs(renderer, inputArea);
   renderPanel(renderer, seconds, pulse, width, height, panelY);
   renderSliders(renderer, inputArea);
 
-  UI_FileDialogOptions dialogOptions;
-  dialogOptions.mode = fileDialogMode_;
-  dialogOptions.title = fileDialogMode_ == UI_FileDialogMode::Save ? "Save Blend2D Output" : "Load File";
-  dialogOptions.filters = fileDialogFilters_.empty() ? kDemoFileFilters : fileDialogFilters_;
-  dialogOptions.defaultFileName = fileDialogDefaultFileName_;
-  const UI_FileDialogResult fileDialogResult = Blend2DUI::renderFileDialog(renderer,
-                                                                           "demo-file-dialog",
-                                                                           showFileDialog_,
-                                                                           openedFileDialogThisFrame,
-                                                                           dialogOptions,
-                                                                           selectedFilePath_);
-  if (fileDialogResult == UI_FileDialogResult::Accepted) {
-    std::cout << (fileDialogMode_ == UI_FileDialogMode::Save ? "Save path: " : "Load path: ") << selectedFilePath_ << "\n";
+  if (showFileDialog_) {
+      UI_FileDialogOptions dialogOptions;
+      dialogOptions.mode = fileDialogMode_;
+      dialogOptions.title = fileDialogMode_ == UI_FileDialogMode::Save ? "Save Blend2D Output" : "Load File";
+      dialogOptions.filters = fileDialogFilters_.empty() ? kDemoFileFilters : fileDialogFilters_;
+      dialogOptions.defaultFileName = fileDialogDefaultFileName_;
+      const UI_FileDialogResult fileDialogResult = Blend2DUI::renderFileDialog(renderer,
+          "demo-file-dialog",
+          showFileDialog_,
+          dialogOptions,
+          selectedFilePath_);
+      if (fileDialogResult == UI_FileDialogResult::Accepted) {
+          std::cout << (fileDialogMode_ == UI_FileDialogMode::Save ? "Save path: " : "Load path: ") << selectedFilePath_ << "\n";
+      }
   }
+
   renderFpsCounter(renderer, width, height);
 
   return renderer.endFrame();
@@ -266,14 +263,8 @@ void DemoScreen::renderFpsCounter(SceneRenderer& renderer, double width, double 
   constexpr double kBadgeH = 32.0;
   constexpr double kMargin = 18.0;
 
-  const BLRect badgeRect(std::max(8.0, width - kBadgeW - kMargin),
-                         kMargin,
-                         kBadgeW,
-                         kBadgeH);
-  const BLRect labelRect(badgeRect.x + 10.0,
-                         badgeRect.y,
-                         std::max(0.0, badgeRect.w - 20.0),
-                         badgeRect.h);
+  const BLRect badgeRect(std::max(8.0, width - kBadgeW - kMargin), kMargin, kBadgeW, kBadgeH);
+  const BLRect labelRect(badgeRect.x + 10.0, badgeRect.y, std::max(0.0, badgeRect.w - 20.0), badgeRect.h);
 
   canvas.set_fill_style(BLRgba32(0xCC0F172Au));
   canvas.fill_round_rect(BLRoundRect(badgeRect.x, badgeRect.y, badgeRect.w, badgeRect.h, 10.0));
@@ -283,15 +274,11 @@ void DemoScreen::renderFpsCounter(SceneRenderer& renderer, double width, double 
 
   char fpsText[32];
   std::snprintf(fpsText, sizeof(fpsText), "FPS %.1f", displayedFps_);
-  renderer.UI_Label("demo.fps",
-                    labelRect,
-                    kDemoStyles.labelInverse,
-                    UI_ButtonContent(fpsText));
+  renderer.UI_Label("demo.fps", labelRect, kDemoStyles.labelInverse, UI_ButtonContent(fpsText));
 }
 
 void DemoScreen::renderMenu(SceneRenderer& renderer,
-                            const UI_RectArea& menuArea,
-                            bool& openedFileDialogThisFrame) {
+                            const UI_RectArea& menuArea) {
   DemoProfileScope sectionProfile(renderer, "demo.menu");
 
   renderer.UI_CursorRect(menuArea);
@@ -311,11 +298,9 @@ void DemoScreen::renderMenu(SceneRenderer& renderer,
   }
   if (renderer.UI_Button("4", "104x40", kDemoStyles.neutral, UI_ButtonContent("Load...")) == UI_ButtonActionPressed) {
     openFileDialog(UI_FileDialogMode::Open, kDemoFileFilters);
-    openedFileDialogThisFrame = true;
   }
   if (renderer.UI_Button("5", "104x40", kDemoStyles.neutral, UI_ButtonContent("Save...")) == UI_ButtonActionPressed) {
     openFileDialog(UI_FileDialogMode::Save, kDemoFileFilters, "blend2d-output.png");
-    openedFileDialogThisFrame = true;
   }
 }
 
@@ -336,6 +321,7 @@ void DemoScreen::renderSliders(SceneRenderer& renderer, const UI_RectArea& input
   const double maxWidgetWidth = std::max(180.0, inputDrawable.w - 244.0);
   const double widgetWidth = std::clamp(inputDrawable.w * 0.32, 180.0, maxWidgetWidth);
   const BLRect widgetRect(inputDrawable.x, controlsTop, widgetWidth, controlsHeight);
+
   const BLRect sliderRect(widgetRect.x + widgetRect.w + kControlGap,
                           controlsTop,
                           std::max(80.0, inputDrawable.x + inputDrawable.w - widgetRect.x - widgetRect.w - kControlGap),
@@ -355,29 +341,12 @@ void DemoScreen::renderSliders(SceneRenderer& renderer, const UI_RectArea& input
   sliderArea.SetRect(horizontalSliderRect, kDemoStyles.inputRect);
   renderer.UI_CursorRect(sliderArea);
   renderer.UI_CursorTop(static_cast<int>(kSliderRowGap));
-  renderer.UI_Slider("horizontal-slider-demo",
-                     "100%x50",
-                     kDemoStyles.horizontalSliderOptions,
-                     horizontalSliderValue_,
-                     kDemoStyles.slider);
-
+  renderer.UI_Slider("horizontal-slider-demo", "100%x50", kDemoStyles.horizontalSliderOptions, horizontalSliderValue_, kDemoStyles.slider);
   renderer.UI_CursorGap(static_cast<int>(kSliderRowGap));
-  renderer.UI_Slider("horizontal-slider-demo-red",
-                     "100%x50",
-                     kDemoStyles.redHorizontalSliderOptions,
-                     redHorizontalSliderValue_,
-                     kDemoStyles.redSlider);
+  renderer.UI_Slider("horizontal-slider-demo-red", "100%x50", kDemoStyles.redHorizontalSliderOptions, redHorizontalSliderValue_, kDemoStyles.redSlider);
   renderer.UI_CursorGap(static_cast<int>(kSliderRowGap));
-  renderer.UI_Slider("horizontal-slider-demo-green",
-                     "100%x50",
-                     kDemoStyles.greenHorizontalSliderOptions,
-                     greenHorizontalSliderValue_,
-                     kDemoStyles.greenSlider);
-  renderer.UI_Slider("vertical-slider-demo",
-                     verticalSliderRect,
-                     kDemoStyles.verticalSliderOptions,
-                     verticalSliderValue_,
-                     kDemoStyles.slider);
+  renderer.UI_Slider("horizontal-slider-demo-green", "100%x50", kDemoStyles.greenHorizontalSliderOptions, greenHorizontalSliderValue_, kDemoStyles.greenSlider);
+  renderer.UI_Slider("vertical-slider-demo", verticalSliderRect, kDemoStyles.verticalSliderOptions, verticalSliderValue_, kDemoStyles.slider);
 }
 
 void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect) {
@@ -519,12 +488,8 @@ void DemoScreen::renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rec
   }
 }
 
-void DemoScreen::renderPanel(SceneRenderer& renderer,
-                             double seconds,
-                             double pulse,
-                             double width,
-                             double height,
-                             double panelY) {
+void DemoScreen::renderPanel(SceneRenderer& renderer, double seconds, double pulse, double width, double height, double panelY) 
+{
   DemoProfileScope sectionProfile(renderer, "demo.panel");
 
   BLContext& canvas = renderer.context();

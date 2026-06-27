@@ -119,7 +119,6 @@ UI_FileDialogResult showDialog(SceneRenderer& renderer,
 UI_FileDialogResult renderFileDialog(SceneRenderer& renderer,
                                      const std::string& id,
                                      bool& showFileDialog,
-                                     bool openedFileDialogThisFrame,
                                      const UI_FileDialogOptions& options,
                                      std::string& selectedFilePath);
 

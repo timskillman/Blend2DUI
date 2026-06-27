@@ -1295,10 +1295,9 @@ UI_FileDialogResult showDialog(SceneRenderer& renderer,
 UI_FileDialogResult renderFileDialog(SceneRenderer& renderer,
                                      const std::string& id,
                                      bool& showFileDialog,
-                                     bool openedFileDialogThisFrame,
                                      const UI_FileDialogOptions& options,
                                      std::string& selectedFilePath) {
-  if (!showFileDialog || openedFileDialogThisFrame) return UI_FileDialogResult::None;
+  if (!showFileDialog) return UI_FileDialogResult::None;
 
   const UI_FileDialogResult result = showDialog(renderer, id, options, selectedFilePath);
   if (result == UI_FileDialogResult::Accepted || result == UI_FileDialogResult::Cancelled) {

@@ -38,8 +38,7 @@ class DemoScreen {
 
  private:
   void renderMenu(SceneRenderer& renderer,
-                  const UI_RectArea& menuArea,
-                  bool& openedFileDialogThisFrame);
+                  const UI_RectArea& menuArea);
   void renderInputs(SceneRenderer& renderer, const UI_RectArea& inputArea);
   void renderSliders(SceneRenderer& renderer, const UI_RectArea& inputArea);
   void renderWidgetShowcase(SceneRenderer& renderer, const BLRect& rect);
