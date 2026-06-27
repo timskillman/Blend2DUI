@@ -7,7 +7,7 @@ This UI toolkit in an Immediate Mode Graphical User Interface (IMGUI) that aims 
 This small set of demos takes a first step in rendering versatile widgets including gradient animated buttons, high-speed text areas and file dialogs.  It also renders high quality, scaleable SVG icons used for UI elements making for a professional interface. 
 So much more to come but I hope this demo gives you a flavour of what the UI will do.
 
-![alt text](https://github.com/timskillman/Blend2DUI/blob/master/assets/Screenshot.jpg "Blend2D UI Demo Screenshot")
+![alt text](https://github.com/timskillman/Blend2DUI/blob/master/assets/screenshot.jpg "Blend2D UI Demo Screenshot")
 
 # Blend2D Demo and UI Toolkit
 
