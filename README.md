@@ -198,6 +198,25 @@ The SVG renderer supports a practical subset for diagrams and demos:
 
 It is not intended to be a full browser SVG engine, but it covers the common features used by generated and hand-authored diagram SVGs.
 
+## Features
+
+ - Fast IMGUI design - immediately execute functions as the widgets are drawn. Easy support of UI animation.
+ - Auto-layout based on rectangles, anchor points, 'cursor' based widgets that can align left, center and right without having to precalculate positions
+ - Very small footprint (Pi Zero executable only 3.3Mb in size)
+ - Single SDL3 dependency
+ - Widgets include;
+   - Sliders vertical and horizontal
+   - Single line textbox
+   - Multi-line textbox with fast render caching
+   - Buttons supporting text, image, gradient, hover animations (including gradient), shadows (in and out), stroke and fill styles
+   - 2D and 3D canvases
+   - Label, Toggle, Tick, Combo, Split-drag, Divider, Context menu widgets
+   - SVG, JPG and PNG image support for widgets
+   - File dialogs (load, save, folder creation, multi-view and info modes, multi-selection, keyboard shortcuts etc..)
+   - Rectangle containers with borders, rounded borders and clipping
+   - Pre-defined string styles like CSS but simpler
+   - Full support of Blend2D functionality
+   
 ## Notes For Contributors
 
 - Keep reusable UI code in `Blend2DUI/include` and `Blend2DUI/src`.
