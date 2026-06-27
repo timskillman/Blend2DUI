@@ -1,10 +1,10 @@
 # Why this toolkit?
 
-When it comes to C++, cross-platform, UI toolkits there are suprisingly very few options that are lightweight, attractive and free! This toolkit aims to use the fastest 2D renderer out there, [Blend2D](https://github.com/blend2d/blend2d) using a lightwight cross-platform render backend - [SDL3](https://github.com/libsdl-org/SDL).
+When it comes to C++, cross-platform, UI toolkits there are suprisingly very few options that are lightweight, attractive, fast and free! This toolkit uses the fastest 2D renderer out there; [Blend2D](https://github.com/blend2d/blend2d) with a lightwight cross-platform render backend - [SDL3](https://github.com/libsdl-org/SDL).
 
-This UI toolkit in an Immediate Mode Graphical User Interface (IMGUI) that aims to be far more versatile, attractive, fast and lightweight even to run on something as small as a Pi Zero!  Indeed development will continue to be tested on a Pi Zero to validate the UI's workability.
+This UI toolkit in an Immediate Mode Graphical User Interface (IMGUI) that aims to be far more versatile, attractive, fast and lightweight on something as small as a Pi Zero.  Indeed development will continue to be tested on a Pi Zero to validate the UI's workability.
 
-This small set of demos takes a first step in rendering versatile widgets including gradient animated buttons, high-speed text areas and file dialogs.  It also renders high quality, scaleable SVG icons used for UI elements making for a professional interface. 
+This small demo renders a set of versatile widgets including gradient animated buttons, high-speed text areas, sliders, file dialogs and an embedded 3D view (OpenGL ES 2.0 compatible with Pi Zero).  Blend2DUI uses an auto layout mechanism based on scaleable rectangles and auto-fit widgets.  It also renders high quality, scaleable SVG icons used for UI elements making for a professional interface. 
 So much more to come but I hope this demo gives you a flavour of what the UI will do.
 
 ![alt text](https://github.com/timskillman/Blend2DUI/blob/master/assets/screenshot.jpg "Blend2D UI Demo Screenshot")
@@ -95,6 +95,8 @@ cmake --preset vs2026-x64
 cmake --build --preset vs2026-debug
 cmake --open build/vs2026-x64
 ```
+
+Once built, Blend2DUI solution files are available to load directly into VS2026
 
 For generated Visual Studio solutions, `blend2d_ui_demo` is set as the startup project. The debugger working directory points at the source tree, and `SDL3.dll` is copied beside `blend2d_ui_demo.exe` automatically when SDL3 is built as an imported target.
 
