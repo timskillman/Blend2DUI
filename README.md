@@ -220,6 +220,7 @@ It is not intended to be a full browser SVG engine, but it covers the common fea
 ## Future Development
 
 More widgets such as a colour picker, lists, grid layouts, menu bar, button arrays, floating popups and panels.
+
 I also hope to develop a GUI designer for creating windows and panels that will auto-generate the C++ code or pure text layouts.
 
 ## Notes For Contributors
