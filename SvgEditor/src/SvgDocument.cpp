@@ -226,9 +226,10 @@ void SvgDocument::setCanvas(double viewBoxX, double viewBoxY, double width, doub
 
 RenderState SvgDocument::createRenderState(const BLRect& canvasRect, double zoom, const BLPoint& pan) const {
   constexpr double kMargin = 18.0;
+  constexpr double kMaxRenderZoom = 320.0;
   const double availW = std::max(1.0, canvasRect.w - kMargin * 2.0);
   const double availH = std::max(1.0, canvasRect.h - kMargin * 2.0);
-  const double clampedZoom = std::clamp(zoom, 0.1, 32.0);
+  const double clampedZoom = std::clamp(zoom, 0.1, kMaxRenderZoom);
   const double paperScale = std::min(availW / kA4LandscapeWidth, availH / kA4LandscapeHeight) * clampedZoom;
   const double paperTx = canvasRect.x + (canvasRect.w - kA4LandscapeWidth * paperScale) * 0.5 + pan.x;
   const double paperTy = canvasRect.y + (canvasRect.h - kA4LandscapeHeight * paperScale) * 0.5 + pan.y;
