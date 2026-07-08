@@ -60,7 +60,7 @@ constexpr double kToolbarButtonSize = 56.0;
 constexpr double kCanvasGap = 16.0;
 constexpr double kViewportZoomStep = 1.12;
 constexpr double kViewportMinZoom = 0.1;
-constexpr double kViewportMaxZoom = 32.0;
+constexpr double kViewportMaxZoom = 320.0;
 constexpr int kToolbarCursorGap = 3;
 constexpr int kToolbarButtonGap = 8;
 constexpr int kToolbarButtonGapExtra = kToolbarButtonGap - kToolbarCursorGap;
@@ -99,6 +99,10 @@ void toolbarSeparator(Blend2DUI::SceneRenderer& renderer) {
 
 bool ctrlDown(const Blend2DUI::UI_TextInputKeyEvent& event) {
   return (event.mod & SDL_KMOD_CTRL) != 0;
+}
+
+bool shiftDown(const Blend2DUI::UI_TextInputKeyEvent& event) {
+  return (event.mod & SDL_KMOD_SHIFT) != 0;
 }
 
 double snapValueToStep(double value, double step) {
@@ -636,7 +640,22 @@ void SvgEditorApp::handleKeyboard(Blend2DUI::SceneRenderer& renderer) {
 
     if (!ctrlDown(event)) continue;
 
-    if (event.key == SDLK_C && !shapeSelection_.empty()) {
+    if (event.key == SDLK_G && shiftDown(event)) {
+      if (GroupEdit::ungroupSelection(document_, shapeSelection_.tool())) {
+        pointSelection_.clear();
+        captureUndoState();
+      }
+    } else if (event.key == SDLK_G) {
+      if (GroupEdit::groupSelection(document_, shapeSelection_.tool())) {
+        pointSelection_.clear();
+        captureUndoState();
+      }
+    } else if (event.key == SDLK_U) {
+      if (GroupEdit::ungroupSelection(document_, shapeSelection_.tool())) {
+        pointSelection_.clear();
+        captureUndoState();
+      }
+    } else if (event.key == SDLK_C && !shapeSelection_.empty()) {
       clipboard_ = document_.cloneNodes(shapeSelection_.ids());
     } else if (event.key == SDLK_V && !clipboard_.empty()) {
       const std::vector<std::string> ids = document_.appendClonedNodes(clipboard_, BLPoint(12.0, 12.0));
