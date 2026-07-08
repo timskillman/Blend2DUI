@@ -166,6 +166,8 @@ class SceneRenderer {
   bool mousePressed() const { return mousePressed_; }
   bool mouseReleased() const { return mouseReleased_; }
   double wheelY() const { return wheelY_; }
+  const std::vector<UI_TextInputKeyEvent>& keyEvents() const { return keyEvents_; }
+  const std::string& focusedTextInputId() const { return focusedTextInputId_; }
 
  private:
   friend class Canvas3D;

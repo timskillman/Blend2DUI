@@ -148,10 +148,25 @@ double elapsedMs(Clock::time_point start) {
 }
 
 bool profileEnvironmentEnabled() {
+#if defined(BLEND2DUI_PROFILE_BUILD)
+  return true;
+#endif
   const char* value = std::getenv("BLEND2DUI_PROFILE");
   if (!value) return false;
   const std::string text(value);
   return text == "1" || text == "true" || text == "TRUE" || text == "on" || text == "ON";
+}
+
+bool detectVSyncEnabled() {
+#if defined(BLEND2DUI_FORCE_VSYNC_OFF)
+  return false;
+#endif
+  const char* value = std::getenv("BLEND2DUI_VSYNC");
+  if (!value) return true;
+  const std::string text(value);
+  if (text == "0" || text == "false" || text == "FALSE" || text == "off" || text == "OFF") return false;
+  if (text == "1" || text == "true" || text == "TRUE" || text == "on" || text == "ON") return true;
+  return true;
 }
 
 const char* profileLogPath() {
@@ -439,8 +454,11 @@ bool SceneRenderer::initializeOpenGL() {
     glContext_ = nullptr;
     return false;
   }
-  if (!SDL_GL_SetSwapInterval(1)) {
+  const int swapInterval = detectVSyncEnabled() ? 1 : 0;
+  if (!SDL_GL_SetSwapInterval(swapInterval)) {
     std::cerr << "SDL_GL_SetSwapInterval warning: " << SDL_GetError() << "\n";
+  } else {
+    std::cerr << "Blend2DUI swap interval set to " << swapInterval << "\n";
   }
   glReady_ = true;
   return true;

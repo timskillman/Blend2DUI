@@ -15,6 +15,53 @@ bool hasSvgExtension(const std::filesystem::path& path) {
   return lower(path.extension().string()) == ".svg";
 }
 
+BLRectI visibleAlphaBounds(const BLImage& image) {
+  BLImageData data;
+  if (image.get_data(&data) != BL_SUCCESS || data.pixel_data == nullptr) {
+    return BLRectI(0, 0, std::max(1, image.width()), std::max(1, image.height()));
+  }
+
+  const int width = std::max(1, image.width());
+  const int height = std::max(1, image.height());
+  int minX = width;
+  int minY = height;
+  int maxX = -1;
+  int maxY = -1;
+
+  for (int y = 0; y < height; ++y) {
+    const auto* row = reinterpret_cast<const uint32_t*>(
+        static_cast<const uint8_t*>(data.pixel_data) + static_cast<std::size_t>(data.stride) * static_cast<std::size_t>(y));
+    for (int x = 0; x < width; ++x) {
+      if ((row[x] >> 24) == 0) continue;
+      minX = std::min(minX, x);
+      minY = std::min(minY, y);
+      maxX = std::max(maxX, x);
+      maxY = std::max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return BLRectI(0, 0, width, height);
+  }
+
+  return BLRectI(minX, minY, maxX - minX + 1, maxY - minY + 1);
+}
+
+BLImage trimVisibleBounds(const BLImage& image) {
+  const BLRectI bounds = visibleAlphaBounds(image);
+  if (bounds.x <= 0 && bounds.y <= 0 && bounds.w >= image.width() && bounds.h >= image.height()) {
+    return image;
+  }
+
+  BLImage trimmed(std::max(1, bounds.w), std::max(1, bounds.h), BL_FORMAT_PRGB32);
+  BLContext ctx(trimmed);
+  ctx.set_comp_op(BL_COMP_OP_SRC_COPY);
+  ctx.fill_all(BLRgba32(0x00000000u));
+  ctx.blit_image(BLPoint(0.0, 0.0), image, bounds);
+  ctx.end();
+  return trimmed;
+}
+
 BLRect insetRect(const BLRect& rect, double inset) {
   return BLRect(rect.x + inset,
                 rect.y + inset,
@@ -69,10 +116,22 @@ const BLImage* loadImage(UI_ButtonResources& resources, std::string_view imagePa
     SvgRenderOptions svgOptions;
     svgOptions.inputPath = key;
     if (!renderSvgToImage(svgOptions, image)) return nullptr;
+
+    if (image.width() > 0 && image.height() > 0 &&
+        (image.width() < 128 || image.height() < 128)) {
+      SvgRenderOptions hiResOptions = svgOptions;
+      hiResOptions.width = std::max(image.width() * 4, std::max(96, image.width()));
+      hiResOptions.height = std::max(image.height() * 4, std::max(96, image.height()));
+      BLImage hiResImage;
+      if (renderSvgToImage(hiResOptions, hiResImage)) {
+        image = std::move(hiResImage);
+      }
+    }
   } else if (image.read_from_file(key.c_str()) != BL_SUCCESS) {
     return nullptr;
   }
 
+  image = trimVisibleBounds(image);
   return &resources.images->emplace(key, image).first->second;
 }
 

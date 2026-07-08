@@ -101,6 +101,13 @@ endif()
 
 target_compile_features(Blend2DUI PUBLIC cxx_std_17)
 
+if(MSVC)
+  target_compile_definitions(Blend2DUI PRIVATE
+    $<$<CONFIG:Debug>:BLEND2DUI_PROFILE_BUILD=1>
+    $<$<CONFIG:Debug>:BLEND2DUI_FORCE_VSYNC_OFF=1>
+  )
+endif()
+
 add_executable(blend2d_ui_demo
   "${BLEND2D_DEMO_SOURCE_DIR}/DemoScreen.cpp"
   "${BLEND2D_DEMO_SOURCE_DIR}/demo.cpp"
@@ -110,6 +117,11 @@ target_link_libraries(blend2d_ui_demo PRIVATE Blend2DUI)
 target_compile_definitions(blend2d_ui_demo PRIVATE
   BLEND2DUI_DEMO_ASSET_BASE_PATH="$<TARGET_FILE_DIR:blend2d_ui_demo>"
 )
+
+if(MSVC)
+  # Enable the Visual Studio Performance Tools profiler for the UI demo.
+  target_link_options(blend2d_ui_demo PRIVATE /PROFILE)
+endif()
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/assets")
   add_custom_command(
@@ -170,6 +182,7 @@ target_compile_features(blend2d_ui_file_dialog_filter_test PRIVATE cxx_std_17)
 if(WIN32)
   set_target_properties(blend2d_ui_demo PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:blend2d_ui_demo>"
+    VS_DEBUGGER_ENVIRONMENT "BLEND2DUI_PROFILE=1;BLEND2DUI_VSYNC=0"
   )
 
   if(TARGET SDL3::SDL3)

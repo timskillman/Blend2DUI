@@ -65,8 +65,17 @@ target_compile_options(blend2d_shapes_demo PRIVATE
   $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>
 )
 
+if(MSVC)
+  # Enable the Visual Studio Performance Tools profiler for the shapes demo.
+  target_link_options(blend2d_shapes_demo PRIVATE /PROFILE)
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Blend2DUI/CMakeLists.txt")
   add_subdirectory(Blend2DUI)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SvgEditor/CMakeLists.txt")
+  add_subdirectory(SvgEditor)
 endif()
 
 if(WIN32 AND TARGET blend2d_ui_demo)

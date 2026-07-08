@@ -1006,6 +1006,9 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
   const SDL_Keymod mods = SDL_GetModState();
   const bool ctrlDown = (mods & SDL_KMOD_CTRL) != 0;
   const bool shiftDown = (mods & SDL_KMOD_SHIFT) != 0;
+  const std::string activePattern = options.filters.empty()
+                                        ? "*.*"
+                                        : options.filters[std::min(state.filterIndex, options.filters.size() - 1)].pattern;
   const BLRect marqueeRect = normalizedRect(state.selectionStartX, state.selectionStartY, mouseX_, mouseY_);
   bool clickedAnyFileItem = false;
   bool rightClickedAnyFileItem = false;
@@ -1051,11 +1054,7 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
       state.lastClickPath = clickKey;
       state.lastClickSeconds = frameSeconds_;
 
-      if (doubleClick && nameHovered) {
-        state.renaming = true;
-        state.renamePath = entry.path;
-        state.renameText = entry.name;
-      } else if (entry.directory && doubleClick && iconHovered) {
+      if (entry.directory && doubleClick) {
         cancelRename(state);
         state.selectedPaths.clear();
         state.selectionAnchorPath.clear();
@@ -1063,6 +1062,19 @@ UI_FileDialogResult SceneRenderer::UI_FileDialog(const std::string& id,
         state.currentPath = entry.path;
         state.pathText = pathTextForUi(state.currentPath);
         state.cachedPath.clear();
+      } else if (doubleClick &&
+                 options.mode == UI_FileDialogMode::Open &&
+                 !entry.directory &&
+                 entryPassesFilter(entry, activePattern)) {
+        cancelRename(state);
+        selectOnly(state, entry.path);
+        state.contextMenuOpen = false;
+        selectedPath = pathTextForUi(entry.path);
+        return finishDialog(UI_FileDialogResult::Accepted);
+      } else if (doubleClick && nameHovered) {
+        state.renaming = true;
+        state.renamePath = entry.path;
+        state.renameText = entry.name;
       } else {
         if (state.renaming && state.renamePath != entry.path) cancelRename(state);
         if (shiftDown) selectRange(state, entry.path);
